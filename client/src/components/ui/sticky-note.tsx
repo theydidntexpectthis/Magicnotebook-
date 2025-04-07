@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 
 type StickyNoteColor = "green" | "yellow" | "pink" | "blue" | "purple" | "orange";
@@ -6,6 +6,8 @@ type StickyNoteColor = "green" | "yellow" | "pink" | "blue" | "purple" | "orange
 interface StickyNoteProps extends React.HTMLAttributes<HTMLDivElement> {
   color?: StickyNoteColor;
   children: React.ReactNode;
+  floating?: boolean;
+  pinned?: boolean;
 }
 
 const colorClasses = {
@@ -21,8 +23,13 @@ const StickyNote = ({
   color = "yellow",
   className,
   children,
+  floating = false,
+  pinned = false,
   ...props
 }: StickyNoteProps) => {
+  // Random subtle rotation for each note to give a natural look
+  const [rotation] = useState(() => Math.random() * 4 - 2); // Random between -2 and 2 degrees
+  
   return (
     <div
       className={cn(
@@ -30,8 +37,13 @@ const StickyNote = ({
         "before:content-[''] before:absolute before:w-full before:h-full before:-z-10",
         "before:left-1 before:top-1 before:bg-gray-100/40 before:rounded-sm",
         colorClasses[color],
+        floating && "animate-float",
+        pinned && "before:content-['📌'] before:absolute before:top-[-10px] before:right-[10px] before:z-10",
         className
       )}
+      style={{ 
+        transform: `rotate(${rotation}deg)` 
+      }}
       {...props}
     >
       {children}

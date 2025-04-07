@@ -63,6 +63,30 @@ async function runMigrations() {
       console.log('Stripe columns already exist');
     }
     
+    // Update notes table with new columns if they don't exist
+    console.log('Checking notes table columns...');
+    
+    // Check if title column exists
+    const titleExists = await db.execute(sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='notes' AND column_name='title'
+    `);
+    
+    if (titleExists.rows.length === 0) {
+      console.log('Adding new columns to notes table...');
+      await db.execute(sql`
+        ALTER TABLE notes ADD COLUMN title TEXT DEFAULT '';
+        ALTER TABLE notes ADD COLUMN color TEXT DEFAULT 'yellow';
+        ALTER TABLE notes ADD COLUMN is_pinned BOOLEAN DEFAULT false;
+        ALTER TABLE notes ADD COLUMN is_archived BOOLEAN DEFAULT false;
+        ALTER TABLE notes ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL;
+      `);
+      console.log('New note columns added successfully');
+    } else {
+      console.log('New note columns already exist');
+    }
+    
     console.log('All migrations completed successfully');
   } catch (error) {
     console.error('Migration failed:', error);

@@ -34,8 +34,10 @@ export interface IStorage {
   
   // Note operations
   getNoteByUserId(userId: number): Promise<Note | undefined>;
+  getAllNotesByUserId(userId: number): Promise<Note[]>;
   createNote(note: InsertNote): Promise<Note>;
   updateNote(id: number, content: string): Promise<Note>;
+  updateNoteProps(id: number, props: Partial<Omit<InsertNote, 'userId'>>): Promise<Note>;
   
   // Command operations
   executeCommand(command: InsertCommandExecution): Promise<CommandExecution>;
@@ -126,9 +128,18 @@ export class DatabaseStorage implements IStorage {
     const notes = await db
       .select()
       .from(schema.notes)
-      .where(eq(schema.notes.userId, userId));
+      .where(eq(schema.notes.userId, userId))
+      .limit(1);
     
     return notes.length ? notes[0] : undefined;
+  }
+  
+  async getAllNotesByUserId(userId: number): Promise<Note[]> {
+    return await db
+      .select()
+      .from(schema.notes)
+      .where(eq(schema.notes.userId, userId))
+      .orderBy(desc(schema.notes.isPinned), desc(schema.notes.updatedAt));
   }
   
   async createNote(insertNote: InsertNote): Promise<Note> {
@@ -143,6 +154,26 @@ export class DatabaseStorage implements IStorage {
         content,
         updatedAt: new Date().toISOString()
       })
+      .where(eq(schema.notes.id, id))
+      .returning();
+    
+    if (!updatedNote) {
+      throw new Error('Note not found');
+    }
+    
+    return updatedNote;
+  }
+  
+  async updateNoteProps(id: number, props: Partial<Omit<InsertNote, 'userId'>>): Promise<Note> {
+    // Always include the updated timestamp when updating note properties
+    const updateData = {
+      ...props,
+      updatedAt: new Date().toISOString()
+    };
+    
+    const [updatedNote] = await db
+      .update(schema.notes)
+      .set(updateData)
       .where(eq(schema.notes.id, id))
       .returning();
     

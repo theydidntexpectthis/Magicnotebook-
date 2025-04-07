@@ -111,7 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get user's note
+  // Get default user's note (legacy endpoint for backward compatibility)
   app.get("/api/notes", isAuthenticated, async (req: Request, res: Response) => {
     const note = await storage.getNoteByUserId(req.user!.id);
     
@@ -119,7 +119,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create a default note if none exists
       const defaultNote = await storage.createNote({
         userId: req.user!.id,
+        title: "Welcome to Magic Notebook",
         content: "# Welcome to Magic Notebook\n\nStart typing your notes here. Use the formatting options to style your content.\n\nYou can:\n- Take notes with rich formatting\n- Generate trials using commands (with a package)\n- Store all your important ideas in one place\n\nTo use advanced features, select a package below.",
+        color: "yellow",
+        isPinned: false,
+        isArchived: false,
+        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
       
@@ -128,8 +133,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     res.json(note);
   });
+  
+  // Get all user's notes
+  app.get("/api/notes/all", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const notes = await storage.getAllNotesByUserId(req.user!.id);
+      
+      // If no notes exist, create a default one
+      if (notes.length === 0) {
+        const defaultNote = await storage.createNote({
+          userId: req.user!.id,
+          title: "Welcome to Magic Notebook",
+          content: "# Welcome to Magic Notebook\n\nStart typing your notes here. Use the formatting options to style your content.\n\nYou can:\n- Take notes with rich formatting\n- Generate trials using commands (with a package)\n- Store all your important ideas in one place\n\nTo use advanced features, select a package below.",
+          color: "yellow",
+          isPinned: false,
+          isArchived: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        
+        return res.json([defaultNote]);
+      }
+      
+      res.json(notes);
+    } catch (error) {
+      res.status(500).json({ message: "An error occurred while fetching notes" });
+    }
+  });
 
-  // Update user's note
+  // Update user's note content
   app.post("/api/notes", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const contentSchema = z.object({ content: z.string() });
@@ -141,7 +173,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create new note
         note = await storage.createNote({
           userId: req.user!.id,
+          title: "New Note",
           content,
+          color: "yellow",
+          isPinned: false,
+          isArchived: false,
+          createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
       } else {
@@ -155,6 +192,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: fromZodError(error).message });
       }
       res.status(500).json({ message: "An error occurred while saving the note" });
+    }
+  });
+  
+  // Update note properties (title, color, isPinned, isArchived)
+  app.patch("/api/notes/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const notePropsSchema = z.object({
+        title: z.string().optional(),
+        color: z.enum(["yellow", "green", "pink", "blue", "purple", "orange"]).optional(),
+        isPinned: z.boolean().optional(),
+        isArchived: z.boolean().optional(),
+      });
+      
+      const noteId = parseInt(req.params.id);
+      const props = notePropsSchema.parse(req.body);
+      
+      // Get the note to verify ownership
+      const note = await storage.getNoteByUserId(req.user!.id);
+      
+      if (!note || note.id !== noteId) {
+        return res.status(404).json({ message: "Note not found or you don't have permission to edit it" });
+      }
+      
+      // Update the note properties
+      const updatedNote = await storage.updateNoteProps(noteId, props);
+      
+      res.json(updatedNote);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      res.status(500).json({ message: "An error occurred while updating the note" });
+    }
+  });
+  
+  // Create a new note
+  app.post("/api/notes/new", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const newNoteSchema = z.object({
+        title: z.string().default("New Note"),
+        content: z.string().default(""),
+        color: z.enum(["yellow", "green", "pink", "blue", "purple", "orange"]).default("yellow"),
+        isPinned: z.boolean().default(false),
+        isArchived: z.boolean().default(false),
+      });
+      
+      const noteData = newNoteSchema.parse(req.body);
+      
+      const note = await storage.createNote({
+        userId: req.user!.id,
+        ...noteData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      
+      res.status(201).json(note);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      res.status(500).json({ message: "An error occurred while creating the note" });
     }
   });
 

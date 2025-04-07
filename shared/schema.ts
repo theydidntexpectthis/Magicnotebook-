@@ -73,16 +73,39 @@ export type UserPackage = typeof userPackages.$inferSelect;
 export const notes = pgTable("notes", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  title: text("title").default(""),
   content: text("content").notNull(),
+  color: text("color").default("yellow"), // yellow, green, pink, blue, purple, orange
+  isPinned: boolean("is_pinned").default(false),
+  isArchived: boolean("is_archived").default(false),
+  createdAt: text("created_at").notNull(), // ISO date string
   updatedAt: text("updated_at").notNull(), // ISO date string
 });
 
-export const insertNoteSchema = createInsertSchema(notes).omit({
+export const insertNoteSchema = createInsertSchema(notes, {
+  title: z.string().optional(),
+  color: z.enum(["yellow", "green", "pink", "blue", "purple", "orange"]).optional(),
+  isPinned: z.boolean().optional(),
+  isArchived: z.boolean().optional(),
+  createdAt: z.string(),
+}).omit({
   id: true,
 });
 
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type Note = typeof notes.$inferSelect;
+
+// Note response schema
+export const noteResponseSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  content: z.string(),
+  color: z.enum(["yellow", "green", "pink", "blue", "purple", "orange"]),
+  isPinned: z.boolean(),
+  isArchived: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
 
 // Command execution schema
 export const commandExecutions = pgTable("command_executions", {
@@ -134,3 +157,4 @@ export const commandResponseSchema = z.object({
 export type PackageResponse = z.infer<typeof packageResponseSchema>;
 export type UserPackageResponse = z.infer<typeof userPackageResponseSchema>;
 export type CommandResponse = z.infer<typeof commandResponseSchema>;
+export type NoteResponse = z.infer<typeof noteResponseSchema>;
