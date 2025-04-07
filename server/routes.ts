@@ -25,7 +25,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   setupAuth(app);
   
-  // Create a default user if none exists
+  // Create default demo user if none exists
   const existingUser = await storage.getUserByUsername("demo");
   if (!existingUser) {
     // Create with a secure hashed password
@@ -35,11 +35,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       username: "demo",
       password: hashedPassword,
       email: "demo@example.com",
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      googleId: null,
+      facebookId: null,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null
     });
     console.log("Created default user with ID:", newUser.id);
   } else {
     console.log("Using existing user with ID:", existingUser.id);
+  }
+  
+  // Create admin user if none exists
+  const existingAdmin = await storage.getUserByUsername("admin");
+  if (!existingAdmin) {
+    // Create with a secure hashed password
+    const adminPassword = await hashPassword("adminpassword");
+    
+    const adminUser = await storage.createUser({
+      username: "admin",
+      password: adminPassword,
+      email: "admin@magicnotebook.com",
+      createdAt: new Date().toISOString(),
+      googleId: null,
+      facebookId: null,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null
+    });
+    console.log("Created admin user with ID:", adminUser.id);
+  } else {
+    console.log("Using existing admin user with ID:", existingAdmin.id);
   }
   
   // Authentication middleware for protecting routes

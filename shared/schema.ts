@@ -11,6 +11,8 @@ export const users = pgTable("users", {
   createdAt: text("created_at").notNull(),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  googleId: text("google_id"),
+  facebookId: text("facebook_id"),
 });
 
 export const insertUserSchema = createInsertSchema(users, {
@@ -18,13 +20,17 @@ export const insertUserSchema = createInsertSchema(users, {
   createdAt: z.string(),
   stripeCustomerId: z.string().optional().nullable(),
   stripeSubscriptionId: z.string().optional().nullable(),
+  googleId: z.string().optional().nullable(),
+  facebookId: z.string().optional().nullable(),
 }).pick({
   username: true,
   password: true,
   email: true,
   createdAt: true,
   stripeCustomerId: true,
-  stripeSubscriptionId: true
+  stripeSubscriptionId: true,
+  googleId: true,
+  facebookId: true
 });
 
 export const registerUserSchema = insertUserSchema.extend({

@@ -11,6 +11,7 @@ import { StickyNote } from "@/components/ui/sticky-note";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
+import { FaGoogle, FaFacebook } from "react-icons/fa";
 
 // Form validation schemas
 const loginSchema = z.object({
@@ -147,6 +148,32 @@ const AuthPage: React.FC = () => {
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                     Sign In
                   </Button>
+                  
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-gray-300"></span>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-yellow-50 text-gray-500">Or continue with</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <a 
+                      href="/api/auth/google"
+                      className="flex items-center justify-center gap-2 rounded-md bg-white p-2 text-sm font-medium text-gray-700 shadow-sm border border-gray-300 hover:bg-gray-50"
+                    >
+                      <FaGoogle className="h-5 w-5 text-red-500" />
+                      Google
+                    </a>
+                    <a 
+                      href="/api/auth/facebook"
+                      className="flex items-center justify-center gap-2 rounded-md bg-white p-2 text-sm font-medium text-gray-700 shadow-sm border border-gray-300 hover:bg-gray-50"
+                    >
+                      <FaFacebook className="h-5 w-5 text-blue-600" />
+                      Facebook
+                    </a>
+                  </div>
                 </form>
               ) : (
                 <form onSubmit={registerForm.handleSubmit(handleRegisterSubmit)} className="space-y-4">
@@ -215,6 +242,32 @@ const AuthPage: React.FC = () => {
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                     Create Account
                   </Button>
+                  
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-gray-300"></span>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-green-50 text-gray-500">Or sign up with</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <a 
+                      href="/api/auth/google"
+                      className="flex items-center justify-center gap-2 rounded-md bg-white p-2 text-sm font-medium text-gray-700 shadow-sm border border-gray-300 hover:bg-gray-50"
+                    >
+                      <FaGoogle className="h-5 w-5 text-red-500" />
+                      Google
+                    </a>
+                    <a 
+                      href="/api/auth/facebook"
+                      className="flex items-center justify-center gap-2 rounded-md bg-white p-2 text-sm font-medium text-gray-700 shadow-sm border border-gray-300 hover:bg-gray-50"
+                    >
+                      <FaFacebook className="h-5 w-5 text-blue-600" />
+                      Facebook
+                    </a>
+                  </div>
                 </form>
               )}
             </StickyNote>

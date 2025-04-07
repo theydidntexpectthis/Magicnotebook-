@@ -21,6 +21,8 @@ export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByGoogleId(googleId: string): Promise<User | undefined>;
+  getUserByFacebookId(facebookId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
   // Package operations
@@ -53,6 +55,16 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const users = await db.select().from(schema.users).where(eq(schema.users.username, username));
+    return users.length ? users[0] : undefined;
+  }
+  
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    const users = await db.select().from(schema.users).where(eq(schema.users.googleId, googleId));
+    return users.length ? users[0] : undefined;
+  }
+  
+  async getUserByFacebookId(facebookId: string): Promise<User | undefined> {
+    const users = await db.select().from(schema.users).where(eq(schema.users.facebookId, facebookId));
     return users.length ? users[0] : undefined;
   }
 

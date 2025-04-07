@@ -63,6 +63,24 @@ async function runMigrations() {
       console.log('Stripe columns already exist');
     }
     
+    // Add Google and Facebook ID columns if they don't exist
+    const googleIdExists = await db.execute(sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='users' AND column_name='google_id'
+    `);
+    
+    if (googleIdExists.rows.length === 0) {
+      console.log('Adding social login columns to users table...');
+      await db.execute(sql`
+        ALTER TABLE users ADD COLUMN google_id TEXT DEFAULT NULL;
+        ALTER TABLE users ADD COLUMN facebook_id TEXT DEFAULT NULL;
+      `);
+      console.log('Social login columns added successfully');
+    } else {
+      console.log('Social login columns already exist');
+    }
+    
     // Update notes table with new columns if they don't exist
     console.log('Checking notes table columns...');
     
