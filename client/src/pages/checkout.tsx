@@ -9,13 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
-  CreditCard, 
-  Calendar, 
-  Lock, 
+  Wallet, 
+  QrCode, 
+  Copy, 
   ArrowLeft, 
   CheckCircle2, 
   Loader2,
-  Sparkles
+  Sparkles,
+  HelpCircle
 } from "lucide-react";
 import { useLocation } from "wouter";
 import Header from "@/components/header";
@@ -31,12 +32,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { queryClient } from "@/lib/queryClient";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const paymentSchema = z.object({
-  cardName: z.string().min(3, "Cardholder name is required"),
-  cardNumber: z.string().min(16, "Card number must be 16 digits").max(16),
-  expiryDate: z.string().regex(/^\d{2}\/\d{2}$/, "Expiry date must be in format MM/YY"),
-  cvv: z.string().min(3, "CVV must be 3 digits").max(4),
+  walletAddress: z.string().min(20, "Wallet address is required"),
+  paymentId: z.string().min(5, "Payment ID/transaction hash is required"),
+  email: z.string().email("A valid email is required for receipt").optional(),
 });
 
 type PaymentFormData = z.infer<typeof paymentSchema>;
@@ -71,17 +77,32 @@ const Checkout: React.FC = () => {
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      cardName: "",
-      cardNumber: "",
-      expiryDate: "",
-      cvv: "",
+      walletAddress: "",
+      paymentId: "",
+      email: user?.email || "",
     },
   });
 
   const selectedPackage = packages.find(pkg => pkg.id === selectedPackageId);
+  
+  // Verify wallet transaction - In a real app this would connect to blockchain
+  const verifyTransaction = async (walletAddress: string, txHash: string, amount: number) => {
+    console.log(`Verifying transaction from ${walletAddress} with hash ${txHash} for amount $${amount}`);
+    // In a real implementation, this would check the blockchain for the transaction
+    // For demo purposes, we'll just return true after a delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // For a real implementation, we'd check:
+    // 1. If the transaction exists on the blockchain
+    // 2. If the amount matches the expected amount
+    // 3. If the transaction is confirmed (enough blocks)
+    // 4. If the transaction hasn't been used for a previous purchase
+    
+    return true;
+  };
 
   const handleSubmit = async (data: PaymentFormData) => {
-    if (!selectedPackageId) {
+    if (!selectedPackageId || !selectedPackage) {
       toast({
         title: "No package selected",
         description: "Please select a package before proceeding",
@@ -93,15 +114,33 @@ const Checkout: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // In a real app, this would call a secure API to process payment
-      // For this demo, we'll just simulate a payment processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Verify the transaction on the blockchain
+      toast({
+        title: "Verifying payment",
+        description: "Please wait while we verify your transaction...",
+      });
       
-      // Then purchase the package
+      const isVerified = await verifyTransaction(
+        data.walletAddress,
+        data.paymentId,
+        selectedPackage.price / 100
+      );
+      
+      if (!isVerified) {
+        throw new Error("Transaction verification failed. Please check your payment details and try again.");
+      }
+      
+      // Call the API to activate the package
       await purchasePackage();
       
       // Show success message
       setIsSuccess(true);
+      
+      // Send email receipt if provided
+      if (data.email) {
+        // In a real app, this would call an API to send a receipt
+        console.log(`Sending receipt to ${data.email}`);
+      }
       
       // Reset form
       form.reset();
@@ -109,48 +148,19 @@ const Checkout: React.FC = () => {
       // Invalidate queries to refresh user data
       queryClient.invalidateQueries({ queryKey: ["/api/user/package"] });
       
-      // After a delay, redirect to home
+      // After a delay, redirect to dashboard
       setTimeout(() => {
-        setLocation("/");
+        setLocation("/app");
       }, 3000);
     } catch (error) {
       toast({
-        title: "Payment failed",
+        title: "Payment verification failed",
         description: (error as Error).message,
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Format credit card number with spaces
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || "";
-    const parts = [];
-
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-
-    if (parts.length) {
-      return parts.join(" ");
-    } else {
-      return value;
-    }
-  };
-
-  // Format expiry date as MM/YY
-  const formatExpiryDate = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    
-    if (v.length >= 2) {
-      return `${v.substring(0, 2)}/${v.substring(2, 4)}`;
-    }
-    
-    return v;
   };
 
   if (!user) {
@@ -211,18 +221,63 @@ const Checkout: React.FC = () => {
                   <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
                     <div className="space-y-4">
                       <h2 className="text-lg font-medium flex items-center">
-                        <CreditCard className="mr-2 h-5 w-5" />
-                        Payment Details
+                        <Wallet className="mr-2 h-5 w-5" />
+                        Wallet-to-Wallet Payment
                       </h2>
+
+                      <div className="bg-primary/5 border border-primary/20 rounded-md p-4 mb-4">
+                        <div className="flex items-center mb-2">
+                          <QrCode className="h-5 w-5 mr-2 text-primary" />
+                          <h3 className="text-base font-medium">Our Payment Wallet</h3>
+                        </div>
+                        <div className="flex items-center gap-2 bg-white p-2 rounded border">
+                          <code className="flex-1 text-sm overflow-hidden text-ellipsis whitespace-nowrap">
+                            0xMN23456789ABCDEF0123456789ABCDEF01234567
+                          </code>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8" 
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText("0xMN23456789ABCDEF0123456789ABCDEF01234567");
+                              toast({
+                                title: "Copied to clipboard",
+                                duration: 2000,
+                              });
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Send the exact amount ${(selectedPackage ? selectedPackage.price / 100 : 0).toFixed(2)} to this wallet 
+                          address and enter your transaction details below.
+                        </p>
+                      </div>
 
                       <FormField
                         control={form.control}
-                        name="cardName"
+                        name="walletAddress"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Cardholder Name</FormLabel>
+                            <FormLabel className="flex items-center gap-1">
+                              Your Wallet Address
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-4 w-4 rounded-full">
+                                      <HelpCircle className="h-3 w-3" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="max-w-xs text-xs">The wallet address you used to send the payment</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </FormLabel>
                             <FormControl>
-                              <Input placeholder="John Smith" {...field} />
+                              <Input placeholder="0x1234..." {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -231,62 +286,50 @@ const Checkout: React.FC = () => {
 
                       <FormField
                         control={form.control}
-                        name="cardNumber"
+                        name="paymentId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Card Number</FormLabel>
+                            <FormLabel className="flex items-center gap-1">
+                              Transaction ID/Hash
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-4 w-4 rounded-full">
+                                      <HelpCircle className="h-3 w-3" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="max-w-xs text-xs">The transaction ID or hash from your wallet after sending payment</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </FormLabel>
+                            <FormControl>
+                              <Input placeholder="abc123..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email for Receipt (Optional)</FormLabel>
                             <FormControl>
                               <Input 
-                                placeholder="4242 4242 4242 4242" 
-                                value={formatCardNumber(field.value)}
-                                onChange={e => field.onChange(e.target.value.replace(/\s/g, ""))}
-                                maxLength={19}
+                                placeholder="your@email.com" 
+                                type="email"
+                                value={field.value || ''} 
+                                onChange={(e) => field.onChange(e.target.value)}
                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="expiryDate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Expiry Date</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="MM/YY" 
-                                  value={formatExpiryDate(field.value)}
-                                  onChange={e => field.onChange(e.target.value.replace(/\//g, ""))}
-                                  maxLength={5}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="cvv"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>CVV</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="123" 
-                                  type="password" 
-                                  maxLength={4}
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
                     </div>
 
                     <div className="pt-4">
@@ -299,17 +342,17 @@ const Checkout: React.FC = () => {
                         {isSubmitting ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Processing...
+                            Verifying Payment...
                           </>
                         ) : (
                           <>
-                            Complete Purchase
+                            Confirm Payment & Activate Package
                           </>
                         )}
                       </Button>
                       <div className="flex items-center justify-center mt-4 text-xs text-gray-500">
-                        <Lock className="h-3 w-3 mr-1" />
-                        <span>Secure payment processing</span>
+                        <QrCode className="h-3 w-3 mr-1" />
+                        <span>Payment will be verified on the blockchain</span>
                       </div>
                     </div>
                   </form>
