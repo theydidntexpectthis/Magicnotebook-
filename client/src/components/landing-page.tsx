@@ -28,7 +28,7 @@ const LandingPage: React.FC = () => {
               Unlock the Power of Your Ideas
             </h1>
             <p className="text-lg md:text-xl text-gray-700 mb-6">
-              More Than Just Notes—It's a Gateway to Unlimited Trials!
+              Smart notes that save you money—enjoy ultimate freedom with unlimited trials!
             </p>
             <Button 
               size="lg" 
@@ -62,7 +62,7 @@ const LandingPage: React.FC = () => {
               </div>
               <h3 className="text-xl font-semibold mb-2">Seamless Note-Taking</h3>
               <p className="text-gray-600">
-                Easily organize your thoughts with intuitive interface.
+                Capture ideas effortlessly with our beautiful, distraction-free interface.
               </p>
             </div>
             
@@ -70,9 +70,9 @@ const LandingPage: React.FC = () => {
               <div className="bg-blue-100 p-3 rounded-full mb-4">
                 <Wand2 className="w-6 h-6 text-blue-600" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Unlock Advanced Features</h3>
+              <h3 className="text-xl font-semibold mb-2">Magic Commands</h3>
               <p className="text-gray-600">
-                Generate real-life trial accounts using simple commands.
+                Type simple commands to instantly generate premium service trials.
               </p>
             </div>
             
@@ -80,9 +80,9 @@ const LandingPage: React.FC = () => {
               <div className="bg-blue-100 p-3 rounded-full mb-4">
                 <Package className="w-6 h-6 text-blue-600" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Package Options</h3>
+              <h3 className="text-xl font-semibold mb-2">Smart Savings</h3>
               <p className="text-gray-600">
-                Unlock advanced features with any package purchase.
+                Save hundreds by choosing the package that fits your digital lifestyle.
               </p>
             </div>
           </div>
@@ -124,8 +124,8 @@ const LandingPage: React.FC = () => {
                 </div>
               ))}
             </div>
-            <div className="p-4 text-center text-sm text-gray-600 border-t border-gray-200">
-              Unlock advanced features with any package purchase!
+            <div className="p-4 text-center text-sm text-gray-700 border-t border-gray-200">
+              All packages include unlimited note-taking & premium trial generation!
             </div>
           </div>
         </div>
@@ -143,7 +143,7 @@ const LandingPage: React.FC = () => {
               <div className="bg-blue-100 p-4 rounded-lg mb-3">
                 <Package className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-lg font-medium">Purchase a Package</h3>
+              <h3 className="text-lg font-medium">Choose Your Plan</h3>
             </div>
             
             <ArrowRight className="hidden md:block w-6 h-6 text-gray-400" />
@@ -152,7 +152,7 @@ const LandingPage: React.FC = () => {
               <div className="bg-blue-100 p-4 rounded-lg mb-3">
                 <Pen className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-lg font-medium">Start taking notes</h3>
+              <h3 className="text-lg font-medium">Create & Organize</h3>
             </div>
             
             <ArrowRight className="hidden md:block w-6 h-6 text-gray-400" />
@@ -161,7 +161,7 @@ const LandingPage: React.FC = () => {
               <div className="bg-blue-100 p-4 rounded-lg mb-3">
                 <Wand2 className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-lg font-medium">Generate Trials</h3>
+              <h3 className="text-lg font-medium">Use Magic Commands</h3>
             </div>
             
             <ArrowRight className="hidden md:block w-6 h-6 text-gray-400" />
@@ -170,7 +170,7 @@ const LandingPage: React.FC = () => {
               <div className="bg-blue-100 p-4 rounded-lg mb-3">
                 <CheckCircle className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-lg font-medium">Enjoy Services</h3>
+              <h3 className="text-lg font-medium">Save Money</h3>
             </div>
           </div>
         </div>
@@ -182,7 +182,7 @@ const LandingPage: React.FC = () => {
           <div className="text-center">
             <div className="font-bold text-xl mb-2">Magic Notebook</div>
             <p className="text-sm opacity-75 mb-4">
-              The ultimate note-taking app with trial generation capabilities
+              Save money and time with our smart note-taking and trial generation tool
             </p>
             <p className="text-xs opacity-50">
               © {new Date().getFullYear()} Magic Notebook. All rights reserved.
