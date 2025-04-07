@@ -405,7 +405,7 @@ const NotesGrid: React.FC = () => {
               {editMode ? (
                 <NoteEditor 
                   note={selectedNote} 
-                  onUpdate={(updatedNote) => {
+                  onUpdate={(updatedNote: Note) => {
                     setSelectedNote(updatedNote);
                     queryClient.invalidateQueries({ queryKey: ["/api/notes/all"] });
                   }}

@@ -2,29 +2,83 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Bold, Italic, Underline, Heading, List, ListOrdered, CheckSquare, Palette, Image, Link } from "lucide-react";
+import { Bold, Italic, Underline, Heading, List, ListOrdered, CheckSquare, Palette, Image, Link, Save, X, PlusCircle } from "lucide-react";
 import { useMarkdown } from "@/hooks/use-markdown";
 import { StickyNote } from "@/components/ui/sticky-note";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const NoteEditor: React.FC = () => {
+export type StickyNoteColor = "green" | "yellow" | "pink" | "blue" | "purple" | "orange";
+
+interface Note {
+  id: number;
+  title: string;
+  content: string;
+  color: StickyNoteColor;
+  isPinned: boolean;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface NoteEditorProps {
+  note?: Note;
+  onUpdate?: (updatedNote: Note) => void;
+}
+
+const NoteEditor: React.FC<NoteEditorProps> = ({ note, onUpdate }) => {
   const { toast } = useToast();
-  const [content, setContent] = useState("");
+  const [title, setTitle] = useState(note?.title || "New Note");
+  const [content, setContent] = useState(note?.content || "");
+  const [color, setColor] = useState<StickyNoteColor>(note?.color || "yellow");
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { renderMarkdown } = useMarkdown();
-
-  // Fetch note content
-  const { data: note, isLoading } = useQuery<{ content: string }>({
+  
+  // Using single note query only if we don't have a note passed as prop
+  const { data: defaultNote, isLoading } = useQuery<Note>({
     queryKey: ["/api/notes"],
+    enabled: !note, // Only run this query if no note is passed as prop
   });
 
-  // Save note content
+  // Update note content and properties
   const { mutate: saveNote } = useMutation({
-    mutationFn: async (content: string) => {
-      const response = await apiRequest("POST", "/api/notes", { content });
-      return response.json();
+    mutationFn: async (noteData: { id?: number; title: string; content: string; color: StickyNoteColor }) => {
+      if (note?.id) {
+        // Update existing note
+        const contentResponse = await apiRequest("POST", "/api/notes", { content: noteData.content });
+        await contentResponse.json();
+        
+        const propsResponse = await apiRequest("PATCH", `/api/notes/${note.id}`, {
+          title: noteData.title,
+          color: noteData.color
+        });
+        return propsResponse.json();
+      } else {
+        // Create new note
+        const response = await apiRequest("POST", "/api/notes/new", {
+          title: noteData.title,
+          content: noteData.content,
+          color: noteData.color
+        });
+        return response.json();
+      }
     },
-    onSuccess: () => {
+    onSuccess: (updatedNote) => {
       queryClient.invalidateQueries({ queryKey: ["/api/notes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notes/all"] });
+      
+      if (onUpdate) {
+        onUpdate(updatedNote);
+      }
+      
+      toast({
+        title: "Note saved",
+        description: "Your note has been saved successfully.",
+      });
+      
+      setIsSaving(false);
     },
     onError: (error) => {
       toast({
@@ -32,32 +86,65 @@ const NoteEditor: React.FC = () => {
         description: (error as Error).message,
         variant: "destructive",
       });
+      setIsSaving(false);
     },
   });
 
   useEffect(() => {
-    if (note && !isLoading) {
-      setContent(note.content || "");
+    if (defaultNote && !isLoading && !note) {
+      setTitle(defaultNote.title || "New Note");
+      setContent(defaultNote.content || "");
+      setColor(defaultNote.color || "yellow");
     }
-  }, [note, isLoading]);
+  }, [defaultNote, isLoading, note]);
 
-  // Auto-save note when content changes
+  // Auto-save note when content changes (only for the main editor, not for the modal)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (content && note && content !== note.content) {
-        saveNote(content);
-      }
-    }, 1000);
+    if (!note) { // Only auto-save for the main editor
+      const timer = setTimeout(() => {
+        if (content && defaultNote && (
+          content !== defaultNote.content || 
+          title !== defaultNote.title || 
+          color !== defaultNote.color
+        )) {
+          setIsSaving(true);
+          saveNote({ 
+            id: defaultNote.id, 
+            title, 
+            content, 
+            color 
+          });
+        }
+      }, 2000);
 
-    return () => clearTimeout(timer);
-  }, [content, note, saveNote]);
+      return () => clearTimeout(timer);
+    }
+  }, [content, title, color, defaultNote, note, saveNote]);
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTitle(e.target.value);
+  };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
   };
 
+  const handleColorChange = (newColor: StickyNoteColor) => {
+    setColor(newColor);
+  };
+
+  const handleManualSave = () => {
+    setIsSaving(true);
+    saveNote({
+      id: note?.id || defaultNote?.id,
+      title,
+      content,
+      color
+    });
+  };
+
   const insertMarkdown = (prefix: string, suffix: string = "") => {
-    const textarea = document.getElementById("editor") as HTMLTextAreaElement;
+    const textarea = document.getElementById(note ? `editor-${note.id}` : "editor") as HTMLTextAreaElement;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = content.substring(start, end);
@@ -77,8 +164,58 @@ const NoteEditor: React.FC = () => {
     }, 0);
   };
 
+  const renderColorSelection = () => (
+    <Select 
+      value={color} 
+      onValueChange={(value) => handleColorChange(value as StickyNoteColor)}
+    >
+      <SelectTrigger className="w-[100px]">
+        <div className="flex items-center gap-2">
+          <div className={`w-3 h-3 rounded-full bg-${color === 'pink' ? 'red' : color}-300`}></div>
+          <span className="capitalize">{color}</span>
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="yellow">Yellow</SelectItem>
+        <SelectItem value="green">Green</SelectItem>
+        <SelectItem value="pink">Pink</SelectItem>
+        <SelectItem value="blue">Blue</SelectItem>
+        <SelectItem value="purple">Purple</SelectItem>
+        <SelectItem value="orange">Orange</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <div className="flex flex-col h-full">
+      {/* Title and Color Selection */}
+      <div className="mb-3 flex items-center justify-between">
+        <Input
+          value={title}
+          onChange={handleTitleChange}
+          placeholder="Note Title"
+          className="font-semibold text-lg bg-transparent border-none shadow-none focus-visible:ring-0 p-0 h-auto"
+        />
+        <div className="flex items-center gap-2">
+          {renderColorSelection()}
+          {note && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleManualSave}
+              disabled={isSaving}
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+          )}
+          {!note && isSaving && (
+            <div className="text-xs text-muted-foreground animate-pulse">
+              Saving...
+            </div>
+          )}
+        </div>
+      </div>
+      
       {/* Note Toolbar */}
       <div className="mb-3">
         <StickyNote color="orange" className="p-2 flex flex-wrap items-center gap-1 transform -rotate-1">
@@ -138,12 +275,6 @@ const NoteEditor: React.FC = () => {
           <div className="flex space-x-1">
             <button
               className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
-              title="Text Color"
-            >
-              <Palette size={16} />
-            </button>
-            <button
-              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
               title="Insert Image"
               onClick={() => insertMarkdown("![Image](", ")")}
             >
@@ -188,9 +319,9 @@ const NoteEditor: React.FC = () => {
       <div className="flex flex-1 gap-6 overflow-hidden">
         {/* Markdown Editor */}
         <div className={`md:w-1/2 w-full ${isPreviewMode ? 'hidden md:block' : 'block'}`}>
-          <StickyNote color="yellow" className="h-full flex flex-col transform rotate-1 relative">
+          <StickyNote color={color} className="h-full flex flex-col transform rotate-1 relative">
             <textarea
-              id="editor"
+              id={note ? `editor-${note.id}` : "editor"}
               className="w-full h-full p-4 bg-transparent resize-none focus:outline-none text-gray-800"
               value={content}
               onChange={handleTextChange}

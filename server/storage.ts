@@ -217,44 +217,36 @@ export class DatabaseStorage implements IStorage {
     if (existingPackages.length === 0) {
       const defaultPackages: InsertPackage[] = [
         {
-          name: "Free",
-          price: 0, // $0.00
-          trialCount: 1,
-          features: ["1 Free Trial", "Basic Note-Taking", "Basic Commands"],
-          isBestValue: false,
-          icon: "🎁"
-        },
-        {
           name: "Single Trial",
-          price: 299, // $2.99
+          price: 99, // $0.99
           trialCount: 1,
-          features: ["1 Trial Generation", "One-time Purchase", "Any Service Available"],
+          features: ["1 Trial Generation", "One-time Purchase", "Try Before You Subscribe"],
           isBestValue: false,
-          icon: "🎫"
+          icon: "rocket"
         },
         {
-          name: "Basic",
-          price: 999, // $9.99
-          trialCount: 10,
-          features: ["10 Trial Generations", "Extended Command Access", "Priority Support"],
+          name: "Monthly Basic",
+          price: 1500, // $15.00/month
+          trialCount: -1, // Unlimited for month
+          features: ["Unlimited Monthly Trials", "All Command Access", "Cancel Anytime"],
           isBestValue: false,
-          icon: "💼"
+          icon: "gem"
         },
         {
-          name: "Premium",
-          price: 2499, // $24.99
-          trialCount: 30,
-          features: ["30 Trial Generations", "All Command Access", "Premium Services", "Priority Support"],
+          name: "Monthly Premium",
+          price: 3000, // $30.00/month
+          trialCount: -1, // Unlimited for month
+          features: ["Unlimited Monthly Trials", "Premium Features", "Priority Support", "Premium Commands"],
           isBestValue: true,
-          icon: "💎"
+          icon: "crown"
         },
         {
-          name: "Unlimited",
-          price: 4999, // $49.99
-          trialCount: -1, // Unlimited
-          features: ["Unlimited Trial Generations", "All Current & Future Features", "VIP Support", "Ultimate Freedom"],
+          name: "Lifetime",
+          price: 19900, // $199.00
+          trialCount: -1, // Unlimited forever
+          features: ["Unlimited Lifetime Trials", "All Current & Future Features", "VIP Support", "Ultimate Freedom"],
           isBestValue: false,
-          icon: "♾️"
+          icon: "infinity"
         }
       ];
       
