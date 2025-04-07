@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { CheckCircle, AlertCircle, X, Loader2 } from "lucide-react";
+import { StickyNote } from "@/components/ui/sticky-note";
 
 type NotificationType = "success" | "error" | "processing";
 
@@ -26,37 +27,51 @@ export const Notification: React.FC<NotificationProps> = ({
     }
   }, [type, onDismiss, autoHideDuration]);
 
-  const getNotificationStyles = () => {
+  const getStickyColor = () => {
     switch (type) {
       case "success":
-        return "border-l-4 border-success";
+        return "green";
       case "error":
-        return "border-l-4 border-danger";
+        return "pink";
       case "processing":
-        return "border-l-4 border-warning";
+        return "blue";
       default:
-        return "border-l-4 border-primary";
+        return "yellow";
+    }
+  };
+
+  const getIconColor = () => {
+    switch (type) {
+      case "success":
+        return "text-green-700";
+      case "error":
+        return "text-red-700";
+      case "processing":
+        return "text-blue-700";
+      default:
+        return "text-yellow-700";
     }
   };
 
   const getIcon = () => {
     switch (type) {
       case "success":
-        return <CheckCircle className="h-5 w-5 text-success" />;
+        return <CheckCircle className={`h-5 w-5 ${getIconColor()}`} />;
       case "error":
-        return <AlertCircle className="h-5 w-5 text-danger" />;
+        return <AlertCircle className={`h-5 w-5 ${getIconColor()}`} />;
       case "processing":
-        return <Loader2 className="h-5 w-5 text-warning animate-spin" />;
+        return <Loader2 className={`h-5 w-5 ${getIconColor()} animate-spin`} />;
       default:
         return null;
     }
   };
 
   return (
-    <div
-      className={`notification bg-white ${getNotificationStyles()} rounded-lg shadow-lg p-4 mb-3 animate-in slide-in-from-right`}
+    <StickyNote
+      color={getStickyColor()}
+      className="p-4 mb-3 animate-in slide-in-from-right transform rotate-1"
       style={{
-        animationDuration: "300ms"
+        animationDuration: "300ms",
       }}
     >
       <div className="flex">
@@ -64,17 +79,17 @@ export const Notification: React.FC<NotificationProps> = ({
           {getIcon()}
         </div>
         <div className="ml-3 flex-1 mr-2">
-          <p className="text-sm font-medium text-gray-900">{message}</p>
+          <p className="text-sm font-medium text-gray-800">{message}</p>
         </div>
         <div className="pl-3">
           <button
-            className="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none"
+            className="inline-flex text-gray-700 hover:text-gray-900 focus:outline-none"
             onClick={onDismiss}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
       </div>
-    </div>
+    </StickyNote>
   );
 };

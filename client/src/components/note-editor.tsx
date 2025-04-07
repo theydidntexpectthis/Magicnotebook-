@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Bold, Italic, Underline, Heading, List, ListOrdered, CheckSquare, Palette, Image, Link } from "lucide-react";
 import { useMarkdown } from "@/hooks/use-markdown";
+import { StickyNote } from "@/components/ui/sticky-note";
 
 const NoteEditor: React.FC = () => {
   const { toast } = useToast();
@@ -77,125 +78,136 @@ const NoteEditor: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col paper-bg" style={{
-      backgroundColor: "#FEFAF4",
-      backgroundImage: "url('https://www.transparenttextures.com/patterns/notebook.png')"
-    }}>
+    <div className="flex flex-col h-full">
       {/* Note Toolbar */}
-      <div className="note-toolbar bg-white border-b border-gray-200 p-2 flex flex-wrap items-center gap-1">
-        <div className="flex space-x-1 mr-3">
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Heading 1"
-            onClick={() => insertMarkdown("# ", "\n")}
-          >
-            <Heading size={16} />
-          </button>
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Bold"
-            onClick={() => insertMarkdown("**", "**")}
-          >
-            <Bold size={16} />
-          </button>
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Italic"
-            onClick={() => insertMarkdown("*", "*")}
-          >
-            <Italic size={16} />
-          </button>
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Underline"
-            onClick={() => insertMarkdown("__", "__")}
-          >
-            <Underline size={16} />
-          </button>
-        </div>
-        <div className="flex space-x-1 mr-3">
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Bullet List"
-            onClick={() => insertMarkdown("- ")}
-          >
-            <List size={16} />
-          </button>
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Numbered List"
-            onClick={() => insertMarkdown("1. ")}
-          >
-            <ListOrdered size={16} />
-          </button>
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Checklist"
-            onClick={() => insertMarkdown("- [ ] ")}
-          >
-            <CheckSquare size={16} />
-          </button>
-        </div>
-        <div className="flex space-x-1">
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Text Color"
-          >
-            <Palette size={16} />
-          </button>
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Insert Image"
-            onClick={() => insertMarkdown("![Image](", ")")}
-          >
-            <Image size={16} />
-          </button>
-          <button
-            className="p-1.5 rounded hover:bg-gray-100"
-            title="Insert Link"
-            onClick={() => insertMarkdown("[Link](", ")")}
-          >
-            <Link size={16} />
-          </button>
-        </div>
+      <div className="mb-3">
+        <StickyNote color="orange" className="p-2 flex flex-wrap items-center gap-1 transform -rotate-1">
+          <div className="flex space-x-1 mr-3">
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Heading 1"
+              onClick={() => insertMarkdown("# ", "\n")}
+            >
+              <Heading size={16} />
+            </button>
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Bold"
+              onClick={() => insertMarkdown("**", "**")}
+            >
+              <Bold size={16} />
+            </button>
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Italic"
+              onClick={() => insertMarkdown("*", "*")}
+            >
+              <Italic size={16} />
+            </button>
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Underline"
+              onClick={() => insertMarkdown("__", "__")}
+            >
+              <Underline size={16} />
+            </button>
+          </div>
+          <div className="flex space-x-1 mr-3">
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Bullet List"
+              onClick={() => insertMarkdown("- ")}
+            >
+              <List size={16} />
+            </button>
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Numbered List"
+              onClick={() => insertMarkdown("1. ")}
+            >
+              <ListOrdered size={16} />
+            </button>
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Checklist"
+              onClick={() => insertMarkdown("- [ ] ")}
+            >
+              <CheckSquare size={16} />
+            </button>
+          </div>
+          <div className="flex space-x-1">
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Text Color"
+            >
+              <Palette size={16} />
+            </button>
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Insert Image"
+              onClick={() => insertMarkdown("![Image](", ")")}
+            >
+              <Image size={16} />
+            </button>
+            <button
+              className="p-1.5 rounded hover:bg-amber-300/50 text-gray-800"
+              title="Insert Link"
+              onClick={() => insertMarkdown("[Link](", ")")}
+            >
+              <Link size={16} />
+            </button>
+          </div>
+        </StickyNote>
       </div>
 
       {/* Mobile Tab Controls */}
-      <div className="flex border-b border-gray-200 md:hidden">
-        <button 
-          className={`py-2 px-4 text-sm font-medium flex-1 ${isPreviewMode ? 'text-gray-600' : 'text-primary border-b-2 border-primary'}`}
-          onClick={() => setIsPreviewMode(false)}
-        >
-          Editor
-        </button>
-        <button 
-          className={`py-2 px-4 text-sm font-medium flex-1 ${isPreviewMode ? 'text-primary border-b-2 border-primary' : 'text-gray-600'}`}
-          onClick={() => setIsPreviewMode(true)}
-        >
-          Preview
-        </button>
+      <div className="flex mb-3 md:hidden">
+        <StickyNote color="yellow" className="p-0 w-full">
+          <div className="flex w-full">
+            <button 
+              className={`py-2 px-4 text-sm font-medium flex-1 ${
+                isPreviewMode ? 'bg-transparent text-gray-700' : 'bg-amber-300/50 text-gray-800'
+              }`}
+              onClick={() => setIsPreviewMode(false)}
+            >
+              Editor
+            </button>
+            <button 
+              className={`py-2 px-4 text-sm font-medium flex-1 ${
+                isPreviewMode ? 'bg-amber-300/50 text-gray-800' : 'bg-transparent text-gray-700'
+              }`}
+              onClick={() => setIsPreviewMode(true)}
+            >
+              Preview
+            </button>
+          </div>
+        </StickyNote>
       </div>
 
       {/* Editor Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Markdown Editor - Mobile: Conditional | Desktop: Always visible */}
-        <div className={`md:w-1/2 w-full ${isPreviewMode ? 'hidden md:block' : 'block'} md:border-r border-gray-200`}>
-          <textarea
-            id="editor"
-            className="w-full h-full p-3 md:p-6 bg-transparent resize-none focus:outline-none"
-            value={content}
-            onChange={handleTextChange}
-            placeholder="Start typing your notes here..."
-            style={{ minHeight: isPreviewMode ? '0' : '200px' }}
-          />
+      <div className="flex flex-1 gap-6 overflow-hidden">
+        {/* Markdown Editor */}
+        <div className={`md:w-1/2 w-full ${isPreviewMode ? 'hidden md:block' : 'block'}`}>
+          <StickyNote color="yellow" className="h-full flex flex-col transform rotate-1 relative">
+            <textarea
+              id="editor"
+              className="w-full h-full p-4 bg-transparent resize-none focus:outline-none text-gray-800"
+              value={content}
+              onChange={handleTextChange}
+              placeholder="Start typing your magical notes here... ✨"
+              style={{ minHeight: isPreviewMode ? '0' : '300px' }}
+            />
+          </StickyNote>
         </div>
 
-        {/* Markdown Preview - Mobile: Conditional | Desktop: Always visible */}
-        <div className={`md:w-1/2 w-full ${isPreviewMode ? 'block' : 'hidden md:block'} p-3 md:p-6 overflow-auto`}>
-          <div 
-            className="prose prose-sm md:prose max-w-none"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-          />
+        {/* Markdown Preview */}
+        <div className={`md:w-1/2 w-full ${isPreviewMode ? 'block' : 'hidden md:block'}`}>
+          <StickyNote color="blue" className="h-full p-4 overflow-auto transform -rotate-1 relative">
+            <div 
+              className="prose prose-sm md:prose max-w-none text-gray-800"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+            />
+          </StickyNote>
         </div>
       </div>
     </div>

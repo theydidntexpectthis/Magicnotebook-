@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Notification } from "@/components/notification";
+import { StickyNote } from "@/components/ui/sticky-note";
 
 const CommandArea: React.FC = () => {
   const { userPackage } = useUser();
@@ -59,7 +60,17 @@ const CommandArea: React.FC = () => {
       return;
     }
     
-    executeCommand(command);
+    // Format command to handle the new "/" format
+    let commandToExecute = command;
+    if (command.startsWith('/')) {
+      // Convert /netflix to generateTrial Netflix
+      commandToExecute = `generateTrial ${command.substring(1)}`;
+    } else if (!command.includes(' ')) {
+      // If they just typed "netflix" without slash or space, add generateTrial
+      commandToExecute = `generateTrial ${command}`;
+    }
+    
+    executeCommand(commandToExecute);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -70,74 +81,76 @@ const CommandArea: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="bg-gray-50 border-b border-gray-200 p-3 md:p-4">
-          <h3 className="font-medium text-gray-700 flex items-center">
-            <span className="inline-block p-1 mr-2 bg-primary/10 rounded-full text-primary">
+      <StickyNote color="purple" className="overflow-hidden transform rotate-2">
+        <div className="p-3 md:p-4">
+          <h3 className="font-medium text-gray-800 flex items-center">
+            <span className="inline-block p-1 mr-2 bg-gray-800 rounded-full text-purple-100">
               {userPackage?.trialsRemaining === -1 ? "∞" : userPackage?.trialsRemaining}
             </span>
-            Command Input
+            Magic Commands ✨
           </h3>
-          <p className="text-xs md:text-sm text-gray-500 md:mt-1">
-            Enter commands to generate trials and access advanced features.
+          <p className="text-sm text-gray-700 md:mt-1">
+            Type commands to generate trials and save money!
           </p>
         </div>
-        <div className="p-3 md:p-4">
+        <div className="p-3 md:p-4 pt-0">
           {/* Mobile command input */}
           <div className="md:hidden">
-            <div className="command-input bg-gray-50 p-2 px-3 rounded-lg border-l-4 border-primary mb-2">
+            <StickyNote color="yellow" className="p-2 px-3 mb-2 transform -rotate-1">
               <Input
                 type="text"
-                placeholder="Type command (e.g., Netflix)"
-                className="bg-transparent border-none shadow-none focus-visible:ring-0 flex-1 text-sm"
+                placeholder="Type /netflix or /spotify..."
+                className="bg-transparent border-none shadow-none focus-visible:ring-0 flex-1 text-sm text-gray-800"
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={isPending}
               />
-            </div>
-            <Button
-              className="w-full mb-2"
-              size="sm"
-              onClick={handleCommandExecution}
-              disabled={isPending}
-            >
-              {isPending ? "Executing..." : "Execute Command"}
-            </Button>
+            </StickyNote>
+            <StickyNote color="green" className="transform rotate-1 p-1">
+              <Button
+                className="w-full bg-gray-800 hover:bg-gray-700"
+                size="sm"
+                onClick={handleCommandExecution}
+                disabled={isPending}
+              >
+                {isPending ? "Casting spell..." : "Run Command"}
+              </Button>
+            </StickyNote>
           </div>
 
           {/* Desktop command input */}
           <div className="hidden md:block">
-            <div className="command-input bg-gray-50 p-3 pl-4 rounded-lg flex items-center border-l-4 border-primary">
-              <span className="text-primary mr-2">!</span>
+            <StickyNote color="yellow" className="p-3 flex items-center transform -rotate-1">
+              <span className="text-gray-800 font-bold mr-2">/</span>
               <Input
                 type="text"
-                placeholder="Type your command here (e.g., generateTrial Netflix)"
-                className="bg-transparent border-none shadow-none focus-visible:ring-0 flex-1"
+                placeholder="Type spotify, netflix, hulu, etc..."
+                className="bg-transparent border-none shadow-none focus-visible:ring-0 flex-1 text-gray-800"
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={isPending}
               />
               <Button
-                className="ml-2"
+                className="ml-2 bg-gray-800 hover:bg-gray-700"
                 size="sm"
                 onClick={handleCommandExecution}
                 disabled={isPending}
               >
-                {isPending ? "Executing..." : "Execute"}
+                {isPending ? "Casting..." : "Run"}
               </Button>
-            </div>
+            </StickyNote>
           </div>
 
-          <div className="mt-2 text-xs text-gray-500">
-            <p>Example: <code>!generateTrial Netflix</code> or <code>!generateTrial Spotify</code></p>
+          <StickyNote color="blue" className="mt-3 text-sm text-gray-800 p-2 transform rotate-1">
+            <p>Examples: <span className="font-mono text-gray-800 bg-blue-300/50 px-1 rounded-sm">/spotify</span> or <span className="font-mono text-gray-800 bg-blue-300/50 px-1 rounded-sm">/netflix</span></p>
             <p className="mt-1">
-              Package: <strong>{userPackage?.packageName}</strong> - Trials: <strong>{userPackage?.trialsRemaining === -1 ? "Unlimited" : userPackage?.trialsRemaining}</strong>
+              <span className="font-semibold">{userPackage?.packageName} Package</span> - <span className="font-semibold">{userPackage?.trialsRemaining === -1 ? "Unlimited" : userPackage?.trialsRemaining} trials left</span>
             </p>
-          </div>
+          </StickyNote>
         </div>
-      </div>
+      </StickyNote>
 
       {notification && (
         <div className="fixed bottom-4 right-4 w-auto max-w-[90%] md:w-80 z-50">
