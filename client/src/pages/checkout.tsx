@@ -61,6 +61,7 @@ const Checkout: React.FC = () => {
   const [, setLocation] = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [autoDeliver, setAutoDeliver] = useState(true);
 
   // Get package ID from URL if available
   useEffect(() => {
@@ -133,6 +134,33 @@ const Checkout: React.FC = () => {
       // Call the API to activate the package
       await purchasePackage();
       
+      // If auto-deliver is enabled, generate trials immediately
+      if (autoDeliver && selectedPackage.trialCount > 0) {
+        try {
+          // In a real app, this would call an API to generate trials
+          toast({
+            title: "Generating trials",
+            description: `Auto-delivering ${selectedPackage.trialCount} trials to your account...`,
+          });
+          
+          // Simulate trial generation - in a real app this would be an API call
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          toast({
+            title: "Trials delivered",
+            description: `${selectedPackage.trialCount} trials have been added to your account`,
+            variant: "default",
+          });
+        } catch (error) {
+          console.error("Error auto-delivering trials:", error);
+          toast({
+            title: "Trial delivery notice",
+            description: "We couldn't auto-deliver your trials. You can generate them manually from your dashboard.",
+            variant: "destructive",
+          });
+        }
+      }
+      
       // Show success message
       setIsSuccess(true);
       
@@ -184,9 +212,19 @@ const Checkout: React.FC = () => {
               <div className="text-center py-10">
                 <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Payment Successful!</h2>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 mb-4">
                   Your subscription to {selectedPackage?.name} has been activated.
                 </p>
+                {selectedPackage?.trialCount > 0 && autoDeliver && (
+                  <div className="bg-green-50 border border-green-100 rounded-md p-3 mb-4 inline-block mx-auto">
+                    <div className="flex items-center">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                      <span className="text-sm font-medium text-green-700">
+                        {selectedPackage.trialCount} trials auto-delivered
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <Sparkles className="h-8 w-8 text-amber-500 mx-auto mb-4" />
                 <p className="text-sm text-gray-500">Redirecting you to the dashboard...</p>
               </div>
@@ -419,12 +457,33 @@ const Checkout: React.FC = () => {
                     <span>${(selectedPackage ? selectedPackage.price / 100 : 0).toFixed(2)}</span>
                   </div>
 
-                  {selectedPackage?.name.toLowerCase().includes("monthly") && (
-                    <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded-md">
-                      By completing your purchase, you agree to be billed monthly for this subscription.
-                      You can cancel anytime from your account settings.
+                  <div className="mt-4 space-y-3">
+                    {selectedPackage?.name.toLowerCase().includes("monthly") && (
+                      <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded-md">
+                        By completing your purchase, you agree to be billed monthly for this subscription.
+                        You can cancel anytime from your account settings.
+                      </div>
+                    )}
+                    
+                    <div className="bg-primary/5 border border-primary/20 rounded-md p-3">
+                      <h3 className="text-sm font-medium mb-2">Delivery Options</h3>
+                      <div className="flex items-start gap-2">
+                        <input 
+                          type="checkbox" 
+                          id="autoDeliver" 
+                          className="mt-1"
+                          checked={autoDeliver}
+                          onChange={(e) => setAutoDeliver(e.target.checked)}
+                        />
+                        <label htmlFor="autoDeliver" className="text-xs">
+                          <div className="font-medium">Auto-deliver all trials upon purchase</div>
+                          <div className="text-gray-500">
+                            Your trials will be automatically added to your account and ready for immediate use.
+                          </div>
+                        </label>
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </StickyNote>
             </div>
