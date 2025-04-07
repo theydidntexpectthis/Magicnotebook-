@@ -1,111 +1,64 @@
-import express, { type Express, Request, Response } from "express";
+import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
-  insertUserSchema, 
-  insertUserPackageSchema, 
   insertNoteSchema, 
   insertCommandExecutionSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { setupAuth } from "./auth";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register all API routes (prefixed with /api)
   
-  // Mock authentication for demo purposes
-  let currentUserId = 1;
-
+  // Setup authentication
+  setupAuth(app);
+  
   // Create a default user if none exists
   const existingUser = await storage.getUserByUsername("demo");
   if (!existingUser) {
+    // Create with a secure hashed password
+    const hashedPassword = await hashPassword("password");
+    
     const newUser = await storage.createUser({
       username: "demo",
-      password: "password"
+      password: hashedPassword,
+      email: "demo@example.com",
+      createdAt: new Date().toISOString()
     });
-    currentUserId = newUser.id;
-    console.log("Created default user with ID:", currentUserId);
+    console.log("Created default user with ID:", newUser.id);
   } else {
-    currentUserId = existingUser.id;
-    console.log("Using existing user with ID:", currentUserId);
+    console.log("Using existing user with ID:", existingUser.id);
   }
-
-  // Register a new user
-  app.post("/api/register", async (req: Request, res: Response) => {
-    try {
-      const userInput = insertUserSchema.parse(req.body);
-      
-      // Check if username already exists
-      const existingUser = await storage.getUserByUsername(userInput.username);
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already taken" });
-      }
-      
-      const newUser = await storage.createUser(userInput);
-      
-      // Don't return the password
-      const { password, ...userWithoutPassword } = newUser;
-      
-      return res.status(201).json(userWithoutPassword);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const validationError = fromZodError(error);
-        return res.status(400).json({ message: validationError.message });
-      }
-      console.error("Error creating user:", error);
-      return res.status(500).json({ message: "Internal server error" });
-    }
-  });
   
-  // User login
-  app.post("/api/login", async (req: Request, res: Response) => {
-    try {
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        return res.status(400).json({ message: "Username and password are required" });
-      }
-      
-      const user = await storage.getUserByUsername(username);
-      
-      if (!user || user.password !== password) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-      
-      // Set current user ID for this session (in a real app, use proper session management)
-      currentUserId = user.id;
-      
-      // Don't return the password
-      const { password: _, ...userWithoutPassword } = user;
-      
-      return res.status(200).json(userWithoutPassword);
-    } catch (error) {
-      console.error("Error during login:", error);
-      return res.status(500).json({ message: "Internal server error" });
+  // Authentication middleware for protecting routes
+  const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+    if (req.isAuthenticated()) {
+      return next();
     }
-  });
+    return res.status(401).json({ message: "Not authenticated" });
+  };
 
-  // Get current user
-  app.get("/api/user", async (req: Request, res: Response) => {
-    const user = await storage.getUser(currentUserId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    
-    // Don't return the password
-    const { password, ...userWithoutPassword } = user;
-    res.json(userWithoutPassword);
-  });
-
-  // Get all packages
+  // Get all packages (public route, no authentication required)
   app.get("/api/packages", async (req: Request, res: Response) => {
     const packages = await storage.getPackages();
     res.json(packages);
   });
 
   // Get user's active package
-  app.get("/api/user/package", async (req: Request, res: Response) => {
-    const userPackage = await storage.getUserPackage(currentUserId);
+  app.get("/api/user/package", isAuthenticated, async (req: Request, res: Response) => {
+    const userPackage = await storage.getUserPackage(req.user!.id);
     if (!userPackage) {
       return res.status(404).json({ message: "No active package found" });
     }
@@ -113,7 +66,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchase a package
-  app.post("/api/packages/purchase", async (req: Request, res: Response) => {
+  app.post("/api/packages/purchase", isAuthenticated, async (req: Request, res: Response) => {
     try {
       // Validate package ID
       const packageIdSchema = z.object({ packageId: z.number() });
@@ -125,14 +78,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if user already has an active package
-      const existingUserPackage = await storage.getUserPackage(currentUserId);
+      const existingUserPackage = await storage.getUserPackage(req.user!.id);
       if (existingUserPackage) {
         return res.status(400).json({ message: "User already has an active package" });
       }
       
       // Create new user package
       const userPackage = await storage.createUserPackage({
-        userId: currentUserId,
+        userId: req.user!.id,
         packageId,
         purchasedAt: new Date().toISOString(),
         trialsRemaining: pkg.trialCount,
@@ -159,13 +112,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's note
-  app.get("/api/notes", async (req: Request, res: Response) => {
-    const note = await storage.getNoteByUserId(currentUserId);
+  app.get("/api/notes", isAuthenticated, async (req: Request, res: Response) => {
+    const note = await storage.getNoteByUserId(req.user!.id);
     
     if (!note) {
       // Create a default note if none exists
       const defaultNote = await storage.createNote({
-        userId: currentUserId,
+        userId: req.user!.id,
         content: "# Welcome to Magic Notebook\n\nStart typing your notes here. Use the formatting options to style your content.\n\nYou can:\n- Take notes with rich formatting\n- Generate trials using commands (with a package)\n- Store all your important ideas in one place\n\nTo use advanced features, select a package below.",
         updatedAt: new Date().toISOString()
       });
@@ -177,17 +130,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user's note
-  app.post("/api/notes", async (req: Request, res: Response) => {
+  app.post("/api/notes", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const contentSchema = z.object({ content: z.string() });
       const { content } = contentSchema.parse(req.body);
       
-      let note = await storage.getNoteByUserId(currentUserId);
+      let note = await storage.getNoteByUserId(req.user!.id);
       
       if (!note) {
         // Create new note
         note = await storage.createNote({
-          userId: currentUserId,
+          userId: req.user!.id,
           content,
           updatedAt: new Date().toISOString()
         });
@@ -206,13 +159,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Execute command
-  app.post("/api/commands/execute", async (req: Request, res: Response) => {
+  app.post("/api/commands/execute", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const commandSchema = z.object({ command: z.string() });
       const { command } = commandSchema.parse(req.body);
       
       // Check if user has an active package
-      const userPackage = await storage.getUserPackage(currentUserId);
+      const userPackage = await storage.getUserPackage(req.user!.id);
       if (!userPackage) {
         return res.status(403).json({ 
           message: "You need to purchase a package to execute commands"
@@ -225,7 +178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!match) {
         const execution = await storage.executeCommand({
-          userId: currentUserId,
+          userId: req.user!.id,
           command,
           serviceName: "unknown",
           status: "error",
@@ -241,7 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user has trials remaining (unless unlimited)
       if (userPackage.trialsRemaining === 0) {
         const execution = await storage.executeCommand({
-          userId: currentUserId,
+          userId: req.user!.id,
           command,
           serviceName,
           status: "error",
@@ -258,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process the command (mock the trial generation)
       // In a real app, this would call external APIs
       const execution = await storage.executeCommand({
-        userId: currentUserId,
+        userId: req.user!.id,
         command,
         serviceName,
         status: "success",
@@ -287,8 +240,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get command history
-  app.get("/api/commands/history", async (req: Request, res: Response) => {
-    const commands = await storage.getCommandsByUserId(currentUserId);
+  app.get("/api/commands/history", isAuthenticated, async (req: Request, res: Response) => {
+    const commands = await storage.getCommandsByUserId(req.user!.id);
     res.json(commands);
   });
 

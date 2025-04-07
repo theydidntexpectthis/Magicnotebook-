@@ -174,35 +174,43 @@ export class DatabaseStorage implements IStorage {
     if (existingPackages.length === 0) {
       const defaultPackages: InsertPackage[] = [
         {
+          name: "Free",
+          price: 0, // $0.00
+          trialCount: 1,
+          features: ["1 Free Trial", "Basic Note-Taking", "Basic Commands"],
+          isBestValue: false,
+          icon: "🎁"
+        },
+        {
+          name: "Single Trial",
+          price: 299, // $2.99
+          trialCount: 1,
+          features: ["1 Trial Generation", "One-time Purchase", "Any Service Available"],
+          isBestValue: false,
+          icon: "🎫"
+        },
+        {
           name: "Basic",
           price: 999, // $9.99
-          trialCount: 3,
-          features: ["3 Trial Generations", "Basic Command Support"],
+          trialCount: 10,
+          features: ["10 Trial Generations", "Extended Command Access", "Priority Support"],
           isBestValue: false,
           icon: "💼"
         },
         {
-          name: "Standard",
-          price: 1999, // $19.99
-          trialCount: 10,
-          features: ["10 Trial Generations", "Extended Command Access", "Priority Support"],
-          isBestValue: false,
-          icon: "🌟"
-        },
-        {
           name: "Premium",
-          price: 4999, // $49.99
+          price: 2499, // $24.99
           trialCount: 30,
-          features: ["30 Trial Generations", "All Command Access", "Premium Services"],
-          isBestValue: false,
+          features: ["30 Trial Generations", "All Command Access", "Premium Services", "Priority Support"],
+          isBestValue: true,
           icon: "💎"
         },
         {
-          name: "Lifetime",
-          price: 19900, // $199.00
+          name: "Unlimited",
+          price: 4999, // $49.99
           trialCount: -1, // Unlimited
-          features: ["Unlimited Trial Generations", "All Current & Future Features", "VIP Support"],
-          isBestValue: true,
+          features: ["Unlimited Trial Generations", "All Current & Future Features", "VIP Support", "Ultimate Freedom"],
+          isBestValue: false,
           icon: "♾️"
         }
       ];

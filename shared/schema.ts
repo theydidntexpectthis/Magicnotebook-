@@ -7,11 +7,28 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email"),
+  createdAt: text("created_at").notNull(),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
+export const insertUserSchema = createInsertSchema(users, {
+  email: z.string().email().optional().nullable(),
+  createdAt: z.string(),
+  stripeCustomerId: z.string().optional().nullable(),
+  stripeSubscriptionId: z.string().optional().nullable(),
+}).pick({
   username: true,
   password: true,
+  email: true,
+  createdAt: true,
+  stripeCustomerId: true,
+  stripeSubscriptionId: true
+});
+
+export const registerUserSchema = insertUserSchema.extend({
+  confirmPassword: z.string()
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
