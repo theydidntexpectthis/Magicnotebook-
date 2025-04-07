@@ -2,7 +2,8 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/context/user-context";
 import { useLocation } from "wouter";
-import { Pen, Wand2, Package, MessageSquare, DollarSign } from "lucide-react";
+import { Pen, Wand2, Package, MessageSquare, DollarSign, Gift, BookOpen } from "lucide-react";
+import { SiDiscord } from "react-icons/si";
 import { StickyNote } from "@/components/ui/sticky-note";
 
 const LandingPage: React.FC = () => {
@@ -117,9 +118,30 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Simple Footer */}
+      {/* Enhanced Footer with Community and Documentation Links */}
       <footer className="py-6 px-4 bg-gray-100 border-t border-gray-200">
         <div className="container mx-auto max-w-6xl">
+          <div className="flex flex-col items-center justify-center gap-4 mb-4">
+            <div className="flex gap-4 items-center">
+              <a 
+                href="#" 
+                className="flex items-center p-2 rounded-md text-indigo-600 hover:bg-indigo-50 transition-colors duration-200"
+                title="Join our Discord community"
+              >
+                <SiDiscord className="w-5 h-5 mr-2" />
+                <span className="font-medium">Join Community</span>
+              </a>
+              <div className="h-6 w-px bg-gray-300"></div>
+              <a 
+                href="#" 
+                className="flex items-center p-2 rounded-md text-amber-600 hover:bg-amber-50 transition-colors duration-200"
+                title="Read our documentation"
+              >
+                <BookOpen className="w-5 h-5 mr-2" />
+                <span className="font-medium">Documentation</span>
+              </a>
+            </div>
+          </div>
           <div className="text-center">
             <p className="text-sm text-gray-600">
               © {new Date().getFullYear()} Magic Notebook. Save time and money with smart notes & trials.

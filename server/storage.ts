@@ -11,7 +11,13 @@ import {
   type InsertCommandExecution,
   type PackageResponse,
   type UserPackageResponse,
-  type CommandResponse
+  type CommandResponse,
+  type AiTeamMember,
+  type InsertAiTeamMember,
+  type AiChatMessage,
+  type InsertAiChatMessage,
+  type AiTeamMemberResponse,
+  type AiChatMessageResponse
 } from "@shared/schema";
 import * as schema from "@shared/schema";
 import { db } from "./db";
@@ -44,6 +50,19 @@ export interface IStorage {
   // Command operations
   executeCommand(command: InsertCommandExecution): Promise<CommandExecution>;
   getCommandsByUserId(userId: number): Promise<CommandExecution[]>;
+  
+  // AI Team operations
+  getAiTeamMembers(userId: number): Promise<AiTeamMember[]>;
+  getAiTeamMember(id: number): Promise<AiTeamMember | undefined>;
+  createAiTeamMember(member: InsertAiTeamMember): Promise<AiTeamMember>;
+  updateAiTeamMember(id: number, props: Partial<Omit<InsertAiTeamMember, 'userId' | 'createdAt'>>): Promise<AiTeamMember>;
+  deleteAiTeamMember(id: number): Promise<boolean>;
+  
+  // AI Chat operations
+  getAiChatMessages(aiTeamMemberId: number, limit?: number): Promise<AiChatMessage[]>;
+  getAiChatMessagesForNote(noteId: number): Promise<AiChatMessage[]>;
+  createAiChatMessage(message: InsertAiChatMessage): Promise<AiChatMessage>;
+  deleteAiChatHistory(aiTeamMemberId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -210,6 +229,93 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(schema.commandExecutions.executedAt));
   }
   
+  // AI Team operations
+  async getAiTeamMembers(userId: number): Promise<AiTeamMember[]> {
+    return await db
+      .select()
+      .from(schema.aiTeamMembers)
+      .where(eq(schema.aiTeamMembers.userId, userId))
+      .orderBy(desc(schema.aiTeamMembers.isActive), desc(schema.aiTeamMembers.createdAt));
+  }
+  
+  async getAiTeamMember(id: number): Promise<AiTeamMember | undefined> {
+    const members = await db.select().from(schema.aiTeamMembers).where(eq(schema.aiTeamMembers.id, id));
+    return members.length ? members[0] : undefined;
+  }
+  
+  async createAiTeamMember(insertMember: InsertAiTeamMember): Promise<AiTeamMember> {
+    const [member] = await db.insert(schema.aiTeamMembers).values(insertMember).returning();
+    return member;
+  }
+  
+  async updateAiTeamMember(
+    id: number, 
+    props: Partial<Omit<InsertAiTeamMember, 'userId' | 'createdAt'>>
+  ): Promise<AiTeamMember> {
+    const [updatedMember] = await db
+      .update(schema.aiTeamMembers)
+      .set(props)
+      .where(eq(schema.aiTeamMembers.id, id))
+      .returning();
+    
+    if (!updatedMember) {
+      throw new Error('AI team member not found');
+    }
+    
+    return updatedMember;
+  }
+  
+  async deleteAiTeamMember(id: number): Promise<boolean> {
+    const result = await db
+      .delete(schema.aiTeamMembers)
+      .where(eq(schema.aiTeamMembers.id, id))
+      .returning();
+    
+    return result.length > 0;
+  }
+  
+  // AI Chat operations
+  async getAiChatMessages(aiTeamMemberId: number, limit?: number): Promise<AiChatMessage[]> {
+    // If a limit is specified, include it in the query
+    if (limit !== undefined) {
+      return await db
+        .select()
+        .from(schema.aiChatMessages)
+        .where(eq(schema.aiChatMessages.aiTeamMemberId, aiTeamMemberId))
+        .orderBy(desc(schema.aiChatMessages.timestamp))
+        .limit(limit);
+    }
+    
+    // Otherwise, just return all messages
+    return await db
+      .select()
+      .from(schema.aiChatMessages)
+      .where(eq(schema.aiChatMessages.aiTeamMemberId, aiTeamMemberId))
+      .orderBy(desc(schema.aiChatMessages.timestamp));
+  }
+  
+  async getAiChatMessagesForNote(noteId: number): Promise<AiChatMessage[]> {
+    return await db
+      .select()
+      .from(schema.aiChatMessages)
+      .where(eq(schema.aiChatMessages.noteId, noteId))
+      .orderBy(desc(schema.aiChatMessages.timestamp));
+  }
+  
+  async createAiChatMessage(insertMessage: InsertAiChatMessage): Promise<AiChatMessage> {
+    const [message] = await db.insert(schema.aiChatMessages).values(insertMessage).returning();
+    return message;
+  }
+  
+  async deleteAiChatHistory(aiTeamMemberId: number): Promise<boolean> {
+    const result = await db
+      .delete(schema.aiChatMessages)
+      .where(eq(schema.aiChatMessages.aiTeamMemberId, aiTeamMemberId))
+      .returning();
+    
+    return result.length > 0;
+  }
+  
   // Initialize database with default packages
   async initializePackages(): Promise<void> {
     const existingPackages = await this.getPackages();
@@ -255,16 +361,68 @@ export class DatabaseStorage implements IStorage {
       }
     }
   }
+  
+  // Initialize default AI team members for a user
+  async initializeAiTeamMembersForUser(userId: number): Promise<void> {
+    const existingMembers = await this.getAiTeamMembers(userId);
+    
+    if (existingMembers.length === 0) {
+      const now = new Date().toISOString();
+      
+      const defaultTeamMembers: InsertAiTeamMember[] = [
+        {
+          userId,
+          name: "Claude",
+          role: "Creative Assistant",
+          model: "claude-3-7-sonnet-20250219", // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
+          provider: "anthropic",
+          avatarColor: "blue",
+          systemPrompt: "You are Claude, a creative and imaginative AI assistant. You excel at generating creative ideas, stories, and content. Be enthusiastic, encouraging, and think outside the box.",
+          isActive: true,
+          createdAt: now
+        },
+        {
+          userId,
+          name: "GPT",
+          role: "Technical Expert",
+          model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
+          provider: "openai",
+          avatarColor: "green",
+          systemPrompt: "You are GPT, a technical AI assistant with expertise in programming, data analysis, and problem-solving. Provide clear, accurate, and concise information with a focus on technical accuracy.",
+          isActive: true,
+          createdAt: now
+        },
+        {
+          userId,
+          name: "Sage",
+          role: "Research Analyst",
+          model: "claude-3-7-sonnet-20250219",
+          provider: "anthropic",
+          avatarColor: "purple",
+          systemPrompt: "You are Sage, a research-focused AI assistant with a methodical approach to gathering and analyzing information. Provide comprehensive, well-sourced answers with a balanced perspective on complex topics.",
+          isActive: true,
+          createdAt: now
+        }
+      ];
+      
+      for (const member of defaultTeamMembers) {
+        await this.createAiTeamMember(member);
+      }
+    }
+  }
 }
 
 // Create and initialize the database storage
 export const storage = new DatabaseStorage();
 
-// Initialize packages when server starts
+// Initialize database when server starts
 (async () => {
   try {
     await storage.initializePackages();
     console.log("Database initialized with default packages");
+    
+    // We don't have a list of users here, so we'll skip AI team initialization
+    // The initializeAiTeamMembersForUser function will be called when users log in
   } catch (error) {
     console.error("Error initializing database:", error);
   }

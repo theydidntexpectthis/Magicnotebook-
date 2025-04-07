@@ -5,9 +5,10 @@ import NotesGrid from "@/components/notes-grid";
 import PackageSelection from "@/components/package-selection";
 import CommandArea from "@/components/command-area";
 import { useUser } from "@/context/user-context";
-import { Loader2, NotebookPen, LayoutGrid } from "lucide-react";
+import { Loader2, NotebookPen, LayoutGrid, BookOpen } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StickyNote } from "@/components/ui/sticky-note";
+import { SiDiscord } from "react-icons/si";
 
 const Home: React.FC = () => {
   const { isLoading, userPackage } = useUser();
@@ -82,6 +83,37 @@ const Home: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Enhanced Footer with Community and Documentation Links */}
+      <footer className="py-4 px-4 bg-gray-100 border-t border-gray-200 mt-6">
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex flex-col md:flex-row items-center justify-center md:justify-between gap-4 mb-2">
+            <p className="text-sm text-gray-500">
+              © {new Date().getFullYear()} Magic Notebook
+            </p>
+            
+            <div className="flex gap-4 items-center">
+              <a 
+                href="#" 
+                className="flex items-center p-1 md:p-2 rounded-md text-indigo-600 hover:bg-indigo-50 transition-colors duration-200 text-sm"
+                title="Join our Discord community"
+              >
+                <SiDiscord className="w-4 h-4 mr-1" />
+                <span className="font-medium">Community</span>
+              </a>
+              <div className="h-6 w-px bg-gray-300"></div>
+              <a 
+                href="#" 
+                className="flex items-center p-1 md:p-2 rounded-md text-amber-600 hover:bg-amber-50 transition-colors duration-200 text-sm"
+                title="Read our documentation"
+              >
+                <BookOpen className="w-4 h-4 mr-1" />
+                <span className="font-medium">Documentation</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Wallet, 
   QrCode, 
@@ -16,7 +18,10 @@ import {
   CheckCircle2, 
   Loader2,
   Sparkles,
-  HelpCircle
+  HelpCircle,
+  ShoppingCart,
+  AlertCircle,
+  Zap
 } from "lucide-react";
 import { useLocation } from "wouter";
 import Header from "@/components/header";
@@ -135,7 +140,7 @@ const Checkout: React.FC = () => {
       await purchasePackage();
       
       // If auto-deliver is enabled, generate trials immediately
-      if (autoDeliver && selectedPackage.trialCount > 0) {
+      if (autoDeliver && selectedPackage && selectedPackage.trialCount > 0) {
         try {
           // In a real app, this would call an API to generate trials
           toast({
@@ -215,7 +220,7 @@ const Checkout: React.FC = () => {
                 <p className="text-gray-600 mb-4">
                   Your subscription to {selectedPackage?.name} has been activated.
                 </p>
-                {selectedPackage?.trialCount > 0 && autoDeliver && (
+                {selectedPackage && selectedPackage.trialCount && selectedPackage.trialCount > 0 && autoDeliver && (
                   <div className="bg-green-50 border border-green-100 rounded-md p-3 mb-4 inline-block mx-auto">
                     <div className="flex items-center">
                       <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
@@ -401,83 +406,110 @@ const Checkout: React.FC = () => {
             {/* Order Summary */}
             <div className="md:col-span-1">
               <StickyNote color="yellow" className="p-5 transform -rotate-1">
-                <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <ShoppingCart className="mr-2 h-5 w-5" /> 
+                  Order Summary
+                </h2>
                 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm text-gray-500">Select Package</Label>
+                <div className="space-y-5">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Select Package</Label>
+                      {selectedPackage && (
+                        <Badge variant="outline" className="bg-amber-50">
+                          Best Value
+                        </Badge>
+                      )}
+                    </div>
+                    
                     <RadioGroup 
                       value={selectedPackageId?.toString()} 
                       onValueChange={(value) => setSelectedPackageId(Number(value))}
                       className="space-y-3"
                     >
-                      {packages.map((pkg) => (
-                        <div 
-                          key={pkg.id}
-                          className={`flex items-center justify-between p-3 border rounded-md ${
-                            selectedPackageId === pkg.id 
-                              ? 'border-primary bg-primary/5' 
-                              : 'border-gray-200'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <RadioGroupItem value={pkg.id.toString()} id={`pkg-${pkg.id}`} />
-                            <Label htmlFor={`pkg-${pkg.id}`} className="cursor-pointer">
-                              <div className="font-medium">{pkg.name}</div>
-                              <div className="text-sm text-gray-500">
-                                {pkg.trialCount === -1 
-                                  ? "Unlimited trials" 
-                                  : `${pkg.trialCount} trial${pkg.trialCount !== 1 ? 's' : ''}`}
-                              </div>
-                            </Label>
+                      {packages.map((pkg) => {
+                        const isSelected = selectedPackageId === pkg.id;
+                        const colorClass = isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200';
+                        
+                        return (
+                          <div 
+                            key={pkg.id}
+                            className={`flex items-center justify-between p-3 border rounded-md transition-all ${
+                              isSelected 
+                                ? 'border-primary bg-primary/5 shadow-sm' 
+                                : 'border-muted hover:border-primary/30 hover:bg-primary/5'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <RadioGroupItem 
+                                value={pkg.id.toString()} 
+                                id={`pkg-${pkg.id}`} 
+                                className={isSelected ? 'text-primary' : ''}
+                              />
+                              <Label htmlFor={`pkg-${pkg.id}`} className="cursor-pointer">
+                                <div className="font-medium">{pkg.name}</div>
+                                <div className="text-sm text-gray-500 flex items-center">
+                                  {pkg.trialCount === -1 ? (
+                                    <><span className="inline-block">∞</span> Unlimited trials</>
+                                  ) : (
+                                    <><Sparkles className="h-3 w-3 mr-1" /> {pkg.trialCount} trial{pkg.trialCount !== 1 ? 's' : ''}</>
+                                  )}
+                                </div>
+                              </Label>
+                            </div>
+                            <div className="font-semibold text-primary">${(pkg.price / 100).toFixed(2)}</div>
                           </div>
-                          <div className="font-semibold">${(pkg.price / 100).toFixed(2)}</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </RadioGroup>
                   </div>
 
-                  <Separator />
-
-                  <div className="py-2">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500">Subtotal</span>
-                      <span>${(selectedPackage ? selectedPackage.price / 100 : 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Tax</span>
-                      <span>$0.00</span>
+                  <div className="bg-muted/30 p-4 rounded-md">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>${(selectedPackage ? selectedPackage.price / 100 : 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Tax</span>
+                        <span>$0.00</span>
+                      </div>
+                      
+                      <Separator className="my-2" />
+                      
+                      <div className="flex justify-between font-medium text-lg pt-1">
+                        <span>Total</span>
+                        <span className="text-primary">${(selectedPackage ? selectedPackage.price / 100 : 0).toFixed(2)}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <Separator />
-
-                  <div className="flex justify-between font-semibold text-lg">
-                    <span>Total</span>
-                    <span>${(selectedPackage ? selectedPackage.price / 100 : 0).toFixed(2)}</span>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
+                  <div className="space-y-3">
                     {selectedPackage?.name.toLowerCase().includes("monthly") && (
-                      <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded-md">
-                        By completing your purchase, you agree to be billed monthly for this subscription.
-                        You can cancel anytime from your account settings.
+                      <div className="text-xs border border-amber-200 bg-amber-50 text-amber-800 p-3 rounded-md flex items-start">
+                        <AlertCircle className="h-3 w-3 mt-0.5 mr-2 flex-shrink-0" />
+                        <span>
+                          By completing your purchase, you agree to be billed monthly for this subscription.
+                          You can cancel anytime from your account settings.
+                        </span>
                       </div>
                     )}
                     
                     <div className="bg-primary/5 border border-primary/20 rounded-md p-3">
-                      <h3 className="text-sm font-medium mb-2">Delivery Options</h3>
-                      <div className="flex items-start gap-2">
-                        <input 
-                          type="checkbox" 
+                      <h3 className="text-sm font-medium mb-2 flex items-center">
+                        <Zap className="h-4 w-4 mr-1.5 text-primary" />
+                        Delivery Options
+                      </h3>
+                      <div className="flex items-start gap-3">
+                        <Checkbox 
                           id="autoDeliver" 
-                          className="mt-1"
+                          className="mt-0.5"
                           checked={autoDeliver}
-                          onChange={(e) => setAutoDeliver(e.target.checked)}
+                          onCheckedChange={(checked: boolean) => setAutoDeliver(checked)}
                         />
-                        <label htmlFor="autoDeliver" className="text-xs">
+                        <label htmlFor="autoDeliver" className="text-xs cursor-pointer">
                           <div className="font-medium">Auto-deliver all trials upon purchase</div>
-                          <div className="text-gray-500">
+                          <div className="text-muted-foreground">
                             Your trials will be automatically added to your account and ready for immediate use.
                           </div>
                         </label>

@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 // UserPackage type definition
 interface UserPackage {
@@ -146,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   // Logout mutation
+  const [, setLocation] = useLocation();
   const logoutMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('POST', '/api/logout');
@@ -159,6 +161,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: 'Logged out',
         description: 'You have been successfully logged out',
       });
+      // Redirect to landing page after logout
+      setLocation('/');
     },
     onError: (error: Error) => {
       toast({

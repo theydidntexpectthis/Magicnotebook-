@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { initializeAiService } from "./ai-service";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize AI services if API keys are available
+  if (process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY) {
+    console.log("Initializing AI services with API keys");
+    initializeAiService(true);
+  } else {
+    console.log("AI API keys not found, using mock responses");
+    initializeAiService(false);
+  }
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

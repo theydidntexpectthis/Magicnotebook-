@@ -162,5 +162,75 @@ export const commandResponseSchema = z.object({
 
 export type PackageResponse = z.infer<typeof packageResponseSchema>;
 export type UserPackageResponse = z.infer<typeof userPackageResponseSchema>;
+// AI Team Member schema
+export const aiTeamMembers = pgTable("ai_team_members", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull(),
+  model: text("model").notNull(), // 'claude-3-7-sonnet-20250219', 'gpt-4o', etc.
+  provider: text("provider").notNull(), // 'anthropic', 'openai'
+  avatarColor: text("avatar_color").default("blue"), // blue, green, pink, purple, orange, yellow
+  systemPrompt: text("system_prompt").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: text("created_at").notNull(), // ISO date string
+});
+
+export const insertAiTeamMemberSchema = createInsertSchema(aiTeamMembers, {
+  avatarColor: z.enum(["blue", "green", "pink", "purple", "orange", "yellow"]).optional(),
+  isActive: z.boolean().optional(),
+  createdAt: z.string(),
+}).omit({
+  id: true,
+});
+
+export type InsertAiTeamMember = z.infer<typeof insertAiTeamMemberSchema>;
+export type AiTeamMember = typeof aiTeamMembers.$inferSelect;
+
+// AI Chat Message schema
+export const aiChatMessages = pgTable("ai_chat_messages", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  aiTeamMemberId: integer("ai_team_member_id").notNull(),
+  content: text("content").notNull(),
+  isUserMessage: boolean("is_user_message").notNull(),
+  timestamp: text("timestamp").notNull(), // ISO date string
+  noteId: integer("note_id"), // Optional relation to a note
+});
+
+export const insertAiChatMessageSchema = createInsertSchema(aiChatMessages, {
+  noteId: z.number().optional().nullable(),
+  timestamp: z.string(),
+}).omit({
+  id: true,
+});
+
+export type InsertAiChatMessage = z.infer<typeof insertAiChatMessageSchema>;
+export type AiChatMessage = typeof aiChatMessages.$inferSelect;
+
+// Response schemas
+export const aiTeamMemberResponseSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  role: z.string(),
+  model: z.string(),
+  provider: z.string(),
+  avatarColor: z.enum(["blue", "green", "pink", "purple", "orange", "yellow"]),
+  systemPrompt: z.string(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+});
+
+export const aiChatMessageResponseSchema = z.object({
+  id: z.number(),
+  aiTeamMemberId: z.number(),
+  content: z.string(),
+  isUserMessage: z.boolean(),
+  timestamp: z.string(),
+  noteId: z.number().nullable().optional(),
+});
+
 export type CommandResponse = z.infer<typeof commandResponseSchema>;
 export type NoteResponse = z.infer<typeof noteResponseSchema>;
+export type AiTeamMemberResponse = z.infer<typeof aiTeamMemberResponseSchema>;
+export type AiChatMessageResponse = z.infer<typeof aiChatMessageResponseSchema>;

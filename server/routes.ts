@@ -4,8 +4,11 @@ import { storage } from "./storage";
 import { 
   insertNoteSchema, 
   insertCommandExecutionSchema,
+  insertAiTeamMemberSchema,
+  insertAiChatMessageSchema,
   users
 } from "@shared/schema";
+import { aiService, initializeAiService } from "./ai-service";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { setupAuth } from "./auth";
@@ -377,67 +380,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Parse command
-      const commandRegex = /^(!)?generateTrial\s+([a-zA-Z0-9]+)$/;
-      const match = command.match(commandRegex);
+      // Import the trial generation system
+      const executeTrialCommand = (await import('./agents')).default;
       
-      if (!match) {
+      // Execute the command using our AI agent system
+      if (command.match(/^(!)?generateTrial\s+/)) {
+        const result = await executeTrialCommand(req.user!.id, command);
+        return res.json(result);
+      } else {
+        // Handle other command types if needed
         const execution = await storage.executeCommand({
           userId: req.user!.id,
           command,
           serviceName: "unknown",
           status: "error",
-          message: "Invalid command format. Use: !generateTrial [serviceName]",
+          message: "Unknown command. Available commands: !generateTrial [serviceName]",
           executedAt: new Date().toISOString()
         });
         
         return res.status(400).json(execution);
       }
-      
-      const serviceName = match[2];
-      
-      // Check if user has trials remaining (unless unlimited)
-      if (userPackage.trialsRemaining === 0) {
-        const execution = await storage.executeCommand({
-          userId: req.user!.id,
-          command,
-          serviceName,
-          status: "error",
-          message: "You have no trials remaining. Please upgrade your package.",
-          executedAt: new Date().toISOString()
-        });
-        
-        return res.status(403).json(execution);
-      }
-      
-      // If user has unlimited trials (indicated by -1)
-      const isUnlimited = userPackage.trialsRemaining === -1;
-      
-      // Process the command (mock the trial generation)
-      // In a real app, this would call external APIs
-      const execution = await storage.executeCommand({
-        userId: req.user!.id,
-        command,
-        serviceName,
-        status: "success",
-        message: `Trial for ${serviceName} generated successfully! Check your email for details.`,
-        executedAt: new Date().toISOString()
-      });
-      
-      // Update trials remaining if not unlimited
-      if (!isUnlimited) {
-        await storage.updateUserPackageTrials(
-          userPackage.id, 
-          userPackage.trialsRemaining - 1
-        );
-      }
-      
-      res.json(execution);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: fromZodError(error).message });
       }
       
+      console.error("Command execution error:", error);
       res.status(500).json({ 
         message: "An error occurred while executing the command"
       });
@@ -448,6 +416,267 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/commands/history", isAuthenticated, async (req: Request, res: Response) => {
     const commands = await storage.getCommandsByUserId(req.user!.id);
     res.json(commands);
+  });
+  
+  // AI Team Routes
+  
+  // Initialize AI Team Members for a user
+  app.post("/api/ai-team/initialize", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      await storage.initializeAiTeamMembersForUser(req.user!.id);
+      
+      // Get the created team members
+      const teamMembers = await storage.getAiTeamMembers(req.user!.id);
+      
+      res.status(201).json(teamMembers);
+    } catch (error) {
+      console.error("Error initializing AI team:", error);
+      res.status(500).json({ message: "Failed to initialize AI team" });
+    }
+  });
+  
+  // Get all AI team members for the current user
+  app.get("/api/ai-team/members", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const teamMembers = await storage.getAiTeamMembers(req.user!.id);
+      
+      // If user has no team members, initialize with defaults
+      if (teamMembers.length === 0) {
+        await storage.initializeAiTeamMembersForUser(req.user!.id);
+        const newTeamMembers = await storage.getAiTeamMembers(req.user!.id);
+        return res.json(newTeamMembers);
+      }
+      
+      res.json(teamMembers);
+    } catch (error) {
+      console.error("Error fetching AI team members:", error);
+      res.status(500).json({ message: "Failed to fetch AI team members" });
+    }
+  });
+  
+  // Get a specific AI team member
+  app.get("/api/ai-team/members/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const memberId = parseInt(req.params.id);
+      const member = await storage.getAiTeamMember(memberId);
+      
+      if (!member || member.userId !== req.user!.id) {
+        return res.status(404).json({ message: "AI team member not found" });
+      }
+      
+      res.json(member);
+    } catch (error) {
+      console.error("Error fetching AI team member:", error);
+      res.status(500).json({ message: "Failed to fetch AI team member" });
+    }
+  });
+  
+  // Create a new AI team member
+  app.post("/api/ai-team/members", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const newMemberSchema = insertAiTeamMemberSchema.extend({
+        avatarColor: z.enum(["blue", "green", "pink", "purple", "orange", "yellow"]).default("blue")
+      });
+      
+      const memberData = newMemberSchema.parse({
+        ...req.body,
+        userId: req.user!.id,
+        createdAt: new Date().toISOString(),
+        isActive: true
+      });
+      
+      const newMember = await storage.createAiTeamMember(memberData);
+      
+      res.status(201).json(newMember);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error creating AI team member:", error);
+      res.status(500).json({ message: "Failed to create AI team member" });
+    }
+  });
+  
+  // Update an AI team member
+  app.patch("/api/ai-team/members/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const memberId = parseInt(req.params.id);
+      const member = await storage.getAiTeamMember(memberId);
+      
+      if (!member || member.userId !== req.user!.id) {
+        return res.status(404).json({ message: "AI team member not found" });
+      }
+      
+      const updateSchema = z.object({
+        name: z.string().optional(),
+        role: z.string().optional(),
+        model: z.string().optional(),
+        provider: z.string().optional(),
+        avatarColor: z.enum(["blue", "green", "pink", "purple", "orange", "yellow"]).optional(),
+        systemPrompt: z.string().optional(),
+        isActive: z.boolean().optional()
+      });
+      
+      const updates = updateSchema.parse(req.body);
+      
+      const updatedMember = await storage.updateAiTeamMember(memberId, updates);
+      
+      res.json(updatedMember);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error updating AI team member:", error);
+      res.status(500).json({ message: "Failed to update AI team member" });
+    }
+  });
+  
+  // Delete an AI team member
+  app.delete("/api/ai-team/members/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const memberId = parseInt(req.params.id);
+      const member = await storage.getAiTeamMember(memberId);
+      
+      if (!member || member.userId !== req.user!.id) {
+        return res.status(404).json({ message: "AI team member not found" });
+      }
+      
+      const success = await storage.deleteAiTeamMember(memberId);
+      
+      if (success) {
+        res.status(204).end();
+      } else {
+        res.status(500).json({ message: "Failed to delete AI team member" });
+      }
+    } catch (error) {
+      console.error("Error deleting AI team member:", error);
+      res.status(500).json({ message: "Failed to delete AI team member" });
+    }
+  });
+  
+  // Get chat history for an AI team member
+  app.get("/api/ai-team/chat/:memberId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const memberId = parseInt(req.params.memberId);
+      const member = await storage.getAiTeamMember(memberId);
+      
+      if (!member || member.userId !== req.user!.id) {
+        return res.status(404).json({ message: "AI team member not found" });
+      }
+      
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const messages = await storage.getAiChatMessages(memberId, limit);
+      
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
+      res.status(500).json({ message: "Failed to fetch chat history" });
+    }
+  });
+  
+  // Send a message to an AI team member
+  app.post("/api/ai-team/chat/:memberId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const memberId = parseInt(req.params.memberId);
+      const member = await storage.getAiTeamMember(memberId);
+      
+      if (!member || member.userId !== req.user!.id) {
+        return res.status(404).json({ message: "AI team member not found" });
+      }
+      
+      const messageSchema = z.object({
+        content: z.string(),
+        noteId: z.number().optional()
+      });
+      
+      const { content, noteId } = messageSchema.parse(req.body);
+      
+      // Save user message
+      const userMessage = await storage.createAiChatMessage({
+        userId: req.user!.id,
+        aiTeamMemberId: memberId,
+        content,
+        isUserMessage: true,
+        timestamp: new Date().toISOString(),
+        noteId
+      });
+      
+      // Get recent chat history (last 10 messages)
+      const recentMessages = await storage.getAiChatMessages(memberId, 10);
+      const chatHistory = recentMessages.reverse().map(msg => ({
+        content: msg.content,
+        isUserMessage: msg.isUserMessage
+      }));
+      
+      // Generate AI response using our service
+      // For now, we'll use mock responses since we may not have API keys
+      try {
+        const aiResponse = await aiService.generateResponse(member, content, chatHistory);
+        
+        // Save AI response
+        const botMessage = await storage.createAiChatMessage({
+          userId: req.user!.id,
+          aiTeamMemberId: memberId,
+          content: aiResponse,
+          isUserMessage: false,
+          timestamp: new Date().toISOString(),
+          noteId
+        });
+        
+        // Return both messages
+        res.json({
+          userMessage,
+          botMessage
+        });
+      } catch (error) {
+        console.error("Error generating AI response:", error);
+        
+        // If AI generation fails, still save a fallback message
+        const errorMessage = await storage.createAiChatMessage({
+          userId: req.user!.id,
+          aiTeamMemberId: memberId,
+          content: "I'm sorry, I encountered an error processing your message. Please try again later.",
+          isUserMessage: false,
+          timestamp: new Date().toISOString(),
+          noteId
+        });
+        
+        res.status(500).json({
+          userMessage,
+          botMessage: errorMessage,
+          error: "Failed to generate AI response"
+        });
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error sending message to AI team member:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+  
+  // Clear chat history for an AI team member
+  app.delete("/api/ai-team/chat/:memberId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const memberId = parseInt(req.params.memberId);
+      const member = await storage.getAiTeamMember(memberId);
+      
+      if (!member || member.userId !== req.user!.id) {
+        return res.status(404).json({ message: "AI team member not found" });
+      }
+      
+      const success = await storage.deleteAiChatHistory(memberId);
+      
+      if (success) {
+        res.status(204).end();
+      } else {
+        res.status(500).json({ message: "Failed to clear chat history" });
+      }
+    } catch (error) {
+      console.error("Error clearing chat history:", error);
+      res.status(500).json({ message: "Failed to clear chat history" });
+    }
   });
 
   const httpServer = createServer(app);

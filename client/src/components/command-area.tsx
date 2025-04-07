@@ -1,21 +1,40 @@
 import React, { useState } from "react";
 import { useUser } from "@/context/user-context";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Notification } from "@/components/notification";
 import { StickyNote } from "@/components/ui/sticky-note";
+import { Gift, Truck, Calendar, CreditCard, Mail, Phone } from "lucide-react";
+import { useMarkdown } from "@/hooks/use-markdown";
 
 const CommandArea: React.FC = () => {
   const { userPackage } = useUser();
   const { toast } = useToast();
+  const { renderMarkdown } = useMarkdown();
   const [command, setCommand] = useState("");
   const [notification, setNotification] = useState<{
     type: "success" | "error" | "processing";
     message: string;
   } | null>(null);
+  
+  // State for the selected trial to view
+  const [selectedTrial, setSelectedTrial] = useState<number | null>(null);
+  
+  // Fetch command history
+  const { data: commandHistory } = useQuery<{
+    id: number;
+    command: string;
+    serviceName: string;
+    status: string;
+    message: string;
+    executedAt: string;
+    trialData?: any;
+  }[]>({
+    queryKey: ["/api/commands/history"],
+  });
 
   const { mutate: executeCommand, isPending } = useMutation({
     mutationFn: async (command: string) => {
@@ -149,6 +168,38 @@ const CommandArea: React.FC = () => {
               <span className="font-semibold">{userPackage?.packageName} Package</span> - <span className="font-semibold">{userPackage?.trialsRemaining === -1 ? "Unlimited" : userPackage?.trialsRemaining} trials left</span>
             </p>
           </StickyNote>
+          
+          {/* Trial Delivery Section */}
+          {commandHistory && commandHistory.length > 0 && (
+            <StickyNote color="green" className="mt-3 text-sm text-gray-800 p-2 transform -rotate-1">
+              <div className="flex items-center mb-1">
+                <Truck className="w-4 h-4 mr-1" />
+                <h4 className="font-medium">Trial Deliveries</h4>
+              </div>
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {commandHistory
+                  .filter(cmd => cmd.status === "success" && cmd.command.includes("generateTrial"))
+                  .map((cmd) => (
+                    <div 
+                      key={cmd.id} 
+                      className="flex items-center justify-between p-1 bg-green-100/50 rounded cursor-pointer hover:bg-green-200/50"
+                      onClick={() => setSelectedTrial(selectedTrial === cmd.id ? null : cmd.id)}
+                    >
+                      <div>
+                        <span className="font-semibold capitalize">{cmd.serviceName}</span>
+                        <span className="text-xs text-gray-600 ml-1">
+                          {new Date(cmd.executedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <Gift className="w-3.5 h-3.5" />
+                    </div>
+                  ))}
+                {commandHistory.filter(cmd => cmd.status === "success" && cmd.command.includes("generateTrial")).length === 0 && (
+                  <p className="text-xs text-gray-600 italic">No trials generated yet</p>
+                )}
+              </div>
+            </StickyNote>
+          )}
         </div>
       </StickyNote>
 
@@ -159,6 +210,127 @@ const CommandArea: React.FC = () => {
             message={notification.message}
             onDismiss={() => setNotification(null)}
           />
+        </div>
+      )}
+      
+      {/* Trial Detail Modal */}
+      {selectedTrial && commandHistory && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-white rounded-lg shadow-lg">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="absolute right-2 top-2"
+              onClick={() => setSelectedTrial(null)}
+            >
+              ✕
+            </Button>
+            
+            {(() => {
+              const trial = commandHistory.find(cmd => cmd.id === selectedTrial);
+              if (!trial) return null;
+              
+              return (
+                <div className="p-6">
+                  <h3 className="text-xl font-bold mb-4 flex items-center">
+                    <Gift className="mr-2 text-green-600" />
+                    {trial.serviceName.charAt(0).toUpperCase() + trial.serviceName.slice(1)} Trial Details
+                  </h3>
+                  
+                  {trial.trialData ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        {/* Account Details */}
+                        {trial.trialData.accountDetails && (
+                          <StickyNote color="yellow" className="p-3 transform rotate-1">
+                            <h4 className="font-bold mb-2 flex items-center">
+                              <Mail className="w-4 h-4 mr-1" /> 
+                              Account Details
+                            </h4>
+                            <div className="space-y-1 text-sm">
+                              <p><strong>Username:</strong> {trial.trialData.accountDetails.username || "N/A"}</p>
+                              <p><strong>Email:</strong> {trial.trialData.accountDetails.email || "N/A"}</p>
+                              <p><strong>Membership:</strong> {trial.trialData.accountDetails.membershipLevel || "Trial"}</p>
+                            </div>
+                          </StickyNote>
+                        )}
+                        
+                        {/* Payment Information */}
+                        {trial.trialData.paymentMethod && (
+                          <StickyNote color="green" className="p-3 transform -rotate-1">
+                            <h4 className="font-bold mb-2 flex items-center">
+                              <CreditCard className="w-4 h-4 mr-1" /> 
+                              Payment Method
+                            </h4>
+                            <div className="space-y-1 text-sm">
+                              <p><strong>Type:</strong> {trial.trialData.paymentMethod.type}</p>
+                              <p><strong>Card:</strong> •••• {trial.trialData.paymentMethod.last4}</p>
+                              <p><strong>Expires:</strong> {trial.trialData.paymentMethod.expiryMonth}/{trial.trialData.paymentMethod.expiryYear}</p>
+                            </div>
+                          </StickyNote>
+                        )}
+                        
+                        {/* Contact Information */}
+                        <StickyNote color="blue" className="p-3 transform rotate-1">
+                          <h4 className="font-bold mb-2 flex items-center">
+                            <Phone className="w-4 h-4 mr-1" /> 
+                            Contact Information
+                          </h4>
+                          <div className="space-y-1 text-sm">
+                            {trial.trialData.email && (
+                              <>
+                                <p><strong>Email:</strong> {trial.trialData.email.email}</p>
+                                <p><strong>Access Key:</strong> {trial.trialData.email.accessKey}</p>
+                              </>
+                            )}
+                            {trial.trialData.phone && (
+                              <>
+                                <p><strong>Phone:</strong> {trial.trialData.phone.phoneNumber}</p>
+                                <p><strong>Verification:</strong> {trial.trialData.phone.verificationCode}</p>
+                              </>
+                            )}
+                          </div>
+                        </StickyNote>
+                        
+                        {/* Trial Status */}
+                        <StickyNote color="pink" className="p-3 transform -rotate-1">
+                          <h4 className="font-bold mb-2 flex items-center">
+                            <Calendar className="w-4 h-4 mr-1" /> 
+                            Trial Status
+                          </h4>
+                          <div className="space-y-1 text-sm">
+                            <p><strong>Created:</strong> {new Date(trial.executedAt).toLocaleString()}</p>
+                            {trial.trialData.signupTime && (
+                              <p><strong>Signup:</strong> {trial.trialData.signupTime}</p>
+                            )}
+                            {trial.trialData.trialEndDate && (
+                              <p><strong>Expires:</strong> {trial.trialData.trialEndDate}</p>
+                            )}
+                          </div>
+                        </StickyNote>
+                      </div>
+                      
+                      {/* Instructions */}
+                      <StickyNote color="purple" className="p-3 transform rotate-1">
+                        <h4 className="font-bold mb-2">Instructions</h4>
+                        <ol className="list-decimal list-inside space-y-1 text-sm">
+                          <li>Use the login details above to access your {trial.serviceName} trial account.</li>
+                          <li>If prompted for verification, use the provided phone number and verification code.</li>
+                          <li>Your trial is set to expire on the trial end date. Make sure to cancel before then to avoid charges.</li>
+                          <li>For security, the payment method details are partially masked.</li>
+                        </ol>
+                      </StickyNote>
+                    </>
+                  ) : (
+                    <div className="p-4 text-center">
+                      <p>No detailed trial data available.</p>
+                      <p className="text-sm text-gray-500 mt-1">The trial might be in progress or was generated before detail tracking was added.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
     </>
