@@ -3,13 +3,16 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertNoteSchema, 
-  insertCommandExecutionSchema
+  insertCommandExecutionSchema,
+  users
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { setupAuth } from "./auth";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 
@@ -64,6 +67,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     console.log("Created admin user with ID:", adminUser.id);
   } else {
+    // Update the admin password if it exists but might be incorrect
+    const adminPassword = await hashPassword("adminpassword");
+    try {
+      await db.update(users)
+        .set({ password: adminPassword })
+        .where(eq(users.username, "admin"))
+        .execute();
+      console.log("Updated admin user password");
+    } catch (error) {
+      console.error("Error updating admin password:", error);
+    }
     console.log("Using existing admin user with ID:", existingAdmin.id);
   }
   

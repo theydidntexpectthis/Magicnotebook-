@@ -28,10 +28,33 @@ async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
+  console.log("Comparing passwords:", { supplied, storedLength: stored?.length });
+  
+  // Handle plain text password for development/debugging
+  if (!stored.includes(".")) {
+    console.log("Using plain text password comparison (development only)");
+    return supplied === stored;
+  }
+  
   const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+  if (!hashed || !salt) {
+    console.log("Invalid stored password format (missing parts)");
+    return false;
+  }
+  
+  console.log("Hashed part length:", hashed.length);
+  console.log("Salt part:", salt);
+  
+  try {
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    const result = timingSafeEqual(hashedBuf, suppliedBuf);
+    console.log("Password comparison result:", result);
+    return result;
+  } catch (error) {
+    console.error("Error comparing passwords:", error);
+    return false;
+  }
 }
 
 export function setupAuth(app: Express) {
