@@ -25,6 +25,7 @@ type UserPackage = {
 type User = {
   id: number;
   username: string;
+  email: string | null;
 };
 
 type UserContextType = {
@@ -60,7 +61,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log("Forced loading state to complete after timeout");
         // Set a default demo user if loading takes too long
         if (!user) {
-          setUser({ id: 1, username: "demo" });
+          setUser({ id: 1, username: "demo", email: null });
         }
       }
     }, 5000);

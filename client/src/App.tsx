@@ -4,6 +4,8 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import AuthPage from "@/pages/auth-page";
 import UserSettings from "@/pages/user-settings";
+import UserProfile from "@/pages/user-profile";
+import Checkout from "@/pages/checkout";
 import { UserProvider } from "@/context/user-context";
 import LandingPage from "@/components/landing-page";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -16,6 +18,8 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/app" component={Home} />
       <ProtectedRoute path="/settings" component={UserSettings} />
+      <ProtectedRoute path="/profile" component={UserProfile} />
+      <ProtectedRoute path="/checkout" component={Checkout} />
       <Route component={NotFound} />
     </Switch>
   );

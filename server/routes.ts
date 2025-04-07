@@ -22,6 +22,27 @@ async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
+async function comparePasswords(supplied: string, stored: string) {
+  // Handle plain text password for development/debugging
+  if (!stored.includes(".")) {
+    return supplied === stored;
+  }
+  
+  const [hashed, salt] = stored.split(".");
+  if (!hashed || !salt) {
+    return false;
+  }
+  
+  try {
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch (error) {
+    console.error("Error comparing passwords:", error);
+    return false;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register all API routes (prefixed with /api)
   
@@ -102,6 +123,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "No active package found" });
     }
     res.json(userPackage);
+  });
+  
+  // Update user profile
+  app.patch("/api/user/profile", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { username, email, currentPassword, newPassword } = req.body;
+      
+      // Verify current password
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      if (!await comparePasswords(currentPassword, user.password)) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+      
+      // Check if username is taken (if changing)
+      if (username !== user.username) {
+        const existingUser = await storage.getUserByUsername(username);
+        if (existingUser) {
+          return res.status(400).json({ message: "Username is already taken" });
+        }
+      }
+      
+      // Update user data
+      const updateData: any = {
+        username,
+        email
+      };
+      
+      // Hash new password if provided
+      if (newPassword) {
+        updateData.password = await hashPassword(newPassword);
+      }
+      
+      // Update user
+      const updatedUser = await db.update(users)
+        .set(updateData)
+        .where(eq(users.id, req.user!.id))
+        .returning();
+      
+      res.json(updatedUser[0]);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
   });
 
   // Purchase a package
