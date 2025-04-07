@@ -19,11 +19,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a default user if none exists
   const existingUser = await storage.getUserByUsername("demo");
   if (!existingUser) {
-    await storage.createUser({
+    const newUser = await storage.createUser({
       username: "demo",
       password: "password"
     });
+    currentUserId = newUser.id;
+    console.log("Created default user with ID:", currentUserId);
+  } else {
+    currentUserId = existingUser.id;
+    console.log("Using existing user with ID:", currentUserId);
   }
+
+  // Register a new user
+  app.post("/api/register", async (req: Request, res: Response) => {
+    try {
+      const userInput = insertUserSchema.parse(req.body);
+      
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(userInput.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already taken" });
+      }
+      
+      const newUser = await storage.createUser(userInput);
+      
+      // Don't return the password
+      const { password, ...userWithoutPassword } = newUser;
+      
+      return res.status(201).json(userWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Error creating user:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // User login
+  app.post("/api/login", async (req: Request, res: Response) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+      
+      const user = await storage.getUserByUsername(username);
+      
+      if (!user || user.password !== password) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Set current user ID for this session (in a real app, use proper session management)
+      currentUserId = user.id;
+      
+      // Don't return the password
+      const { password: _, ...userWithoutPassword } = user;
+      
+      return res.status(200).json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error during login:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   // Get current user
   app.get("/api/user", async (req: Request, res: Response) => {
