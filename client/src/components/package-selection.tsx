@@ -102,10 +102,11 @@ const PackageSelection: React.FC = () => {
         Choose a package to unlock advanced features and trial generation.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Desktop view - grid layout */}
+      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {packages.map((pkg) => (
           <div
-            key={pkg.id}
+            key={`desktop-${pkg.id}`}
             className={`package-card border ${
               selectedPackageId === pkg.id 
                 ? 'border-2 border-primary shadow-md' 
@@ -158,6 +159,54 @@ const PackageSelection: React.FC = () => {
             >
               Select
             </Button>
+          </div>
+        ))}
+      </div>
+      
+      {/* Mobile view - compact cards */}
+      <div className="md:hidden space-y-3 mb-6">
+        {packages.map((pkg) => (
+          <div
+            key={`mobile-${pkg.id}`}
+            className={`package-card-mobile border ${
+              selectedPackageId === pkg.id 
+                ? 'border-2 border-primary shadow-sm' 
+                : pkg.isBestValue 
+                  ? 'border-2 border-primary' 
+                  : 'border'
+            } rounded-lg p-3 cursor-pointer transition-all relative flex items-center`}
+            onClick={() => setSelectedPackageId(pkg.id)}
+          >
+            <div className="bg-primary/10 w-10 h-10 rounded-full flex items-center justify-center mr-3 shrink-0">
+              {renderIcon(pkg.icon)}
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-start">
+                <h3 className="font-semibold">{pkg.name}</h3>
+                <div className="font-bold text-right">
+                  ${(pkg.price / 100).toFixed(2)}
+                </div>
+              </div>
+              
+              <p className="text-xs text-gray-600 mb-1 truncate">
+                {pkg.features[0]}
+              </p>
+              
+              {pkg.isBestValue && (
+                <span className="inline-block text-primary text-xs font-semibold">
+                  BEST VALUE
+                </span>
+              )}
+            </div>
+            
+            <div className="ml-3">
+              <div className={`w-5 h-5 rounded-full border ${selectedPackageId === pkg.id ? 'border-primary' : 'border-gray-300'} flex items-center justify-center`}>
+                {selectedPackageId === pkg.id && (
+                  <div className="w-3 h-3 rounded-full bg-primary"></div>
+                )}
+              </div>
+            </div>
           </div>
         ))}
       </div>

@@ -8,6 +8,7 @@ import { useMarkdown } from "@/hooks/use-markdown";
 const NoteEditor: React.FC = () => {
   const { toast } = useToast();
   const [content, setContent] = useState("");
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const { renderMarkdown } = useMarkdown();
 
   // Fetch note content
@@ -159,23 +160,40 @@ const NoteEditor: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Tab Controls */}
+      <div className="flex border-b border-gray-200 md:hidden">
+        <button 
+          className={`py-2 px-4 text-sm font-medium flex-1 ${isPreviewMode ? 'text-gray-600' : 'text-primary border-b-2 border-primary'}`}
+          onClick={() => setIsPreviewMode(false)}
+        >
+          Editor
+        </button>
+        <button 
+          className={`py-2 px-4 text-sm font-medium flex-1 ${isPreviewMode ? 'text-primary border-b-2 border-primary' : 'text-gray-600'}`}
+          onClick={() => setIsPreviewMode(true)}
+        >
+          Preview
+        </button>
+      </div>
+
       {/* Editor Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Markdown Editor */}
-        <div className="w-1/2 border-r border-gray-200">
+        {/* Markdown Editor - Mobile: Conditional | Desktop: Always visible */}
+        <div className={`md:w-1/2 w-full ${isPreviewMode ? 'hidden md:block' : 'block'} md:border-r border-gray-200`}>
           <textarea
             id="editor"
-            className="w-full h-full p-4 md:p-6 bg-transparent resize-none focus:outline-none"
+            className="w-full h-full p-3 md:p-6 bg-transparent resize-none focus:outline-none"
             value={content}
             onChange={handleTextChange}
             placeholder="Start typing your notes here..."
+            style={{ minHeight: isPreviewMode ? '0' : '200px' }}
           />
         </div>
 
-        {/* Markdown Preview */}
-        <div className="w-1/2 p-4 md:p-6 overflow-auto">
+        {/* Markdown Preview - Mobile: Conditional | Desktop: Always visible */}
+        <div className={`md:w-1/2 w-full ${isPreviewMode ? 'block' : 'hidden md:block'} p-3 md:p-6 overflow-auto`}>
           <div 
-            className="prose prose-sm max-w-none"
+            className="prose prose-sm md:prose max-w-none"
             dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
           />
         </div>

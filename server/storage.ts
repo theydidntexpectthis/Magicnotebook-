@@ -98,7 +98,7 @@ export class DatabaseStorage implements IStorage {
       packageName: pkg.name,
       purchasedAt: userPackage.purchasedAt,
       trialsRemaining: userPackage.trialsRemaining,
-      isActive: userPackage.isActive
+      isActive: userPackage.isActive ?? true
     };
   }
   

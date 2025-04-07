@@ -19,13 +19,34 @@ const Home: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-light">
+    <div className="flex flex-col min-h-screen bg-light">
       <Header />
-      <main className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-auto p-4 md:p-6 flex flex-col space-y-6">
-          <NoteEditor />
-          <PackageSelection />
-          {userPackage && <CommandArea />}
+      <main className="flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 md:py-6 max-w-screen-xl">
+          <div className="grid grid-cols-1 gap-5">
+            {/* Command area shown at top for mobile if package exists */}
+            <div className="block md:hidden">
+              {userPackage && <CommandArea />}
+            </div>
+            
+            {/* Package selection on top for mobile if no package */}
+            <div className="block md:hidden">
+              {!userPackage && <PackageSelection />}
+            </div>
+            
+            {/* Note editor */}
+            <NoteEditor />
+            
+            {/* Package selection below note editor for desktop, or if already has package on mobile */}
+            <div className="hidden md:block">
+              <PackageSelection />
+            </div>
+            
+            {/* Command area at bottom for desktop */}
+            <div className="hidden md:block">
+              {userPackage && <CommandArea />}
+            </div>
+          </div>
         </div>
       </main>
     </div>
