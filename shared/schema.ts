@@ -88,8 +88,15 @@ export const notes = pgTable("notes", {
   title: text("title").default(""),
   content: text("content").notNull(),
   color: text("color").default("yellow"), // yellow, green, pink, blue, purple, orange
+  backgroundColor: text("background_color").default(""), // For custom background colors
+  textAlign: text("text_align").default("left"), // left, center, right
+  fontSize: text("font_size").default("normal"), // small, normal, large
   isPinned: boolean("is_pinned").default(false),
   isArchived: boolean("is_archived").default(false),
+  attachments: text("attachments").array().default([]), // Array of attachment URLs
+  drawingData: text("drawing_data").default(""), // SVG or Canvas data for drawings
+  emojis: text("emojis").default("{}"), // JSON string with emoji reactions
+  tags: text("tags").array().default([]), // Array of tags
   createdAt: text("created_at").notNull(), // ISO date string
   updatedAt: text("updated_at").notNull(), // ISO date string
 });
@@ -97,8 +104,15 @@ export const notes = pgTable("notes", {
 export const insertNoteSchema = createInsertSchema(notes, {
   title: z.string().optional(),
   color: z.enum(["yellow", "green", "pink", "blue", "purple", "orange"]).optional(),
+  backgroundColor: z.string().optional(),
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+  fontSize: z.enum(["small", "normal", "large"]).optional(),
   isPinned: z.boolean().optional(),
   isArchived: z.boolean().optional(),
+  attachments: z.array(z.string()).optional(),
+  drawingData: z.string().optional(),
+  emojis: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   createdAt: z.string(),
 }).omit({
   id: true,
@@ -113,8 +127,15 @@ export const noteResponseSchema = z.object({
   title: z.string(),
   content: z.string(),
   color: z.enum(["yellow", "green", "pink", "blue", "purple", "orange"]),
+  backgroundColor: z.string().optional(),
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+  fontSize: z.enum(["small", "normal", "large"]).optional(),
   isPinned: z.boolean(),
   isArchived: z.boolean(),
+  attachments: z.array(z.string()).optional(),
+  drawingData: z.string().optional(),
+  emojis: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

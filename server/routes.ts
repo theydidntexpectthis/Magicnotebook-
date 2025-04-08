@@ -19,6 +19,9 @@ import { promisify } from "util";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { paymentService } from "./payment-verification";
+import { upload, processImage, getFileUrl } from "./upload-handler";
+import path from "path";
+import fs from "fs";
 
 const scryptAsync = promisify(scrypt);
 
@@ -51,6 +54,9 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register all API routes (prefixed with /api)
+  
+  // Configure uploads folder for static serving
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
   
   // Setup authentication
   setupAuth(app);
@@ -483,6 +489,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: fromZodError(error).message });
       }
       res.status(500).json({ message: "An error occurred while creating the note" });
+    }
+  });
+  
+  // Enhanced note update with all properties
+  app.patch("/api/notes/:id/enhanced", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const enhancedNoteSchema = z.object({
+        title: z.string().optional(),
+        content: z.string().optional(),
+        color: z.enum(["yellow", "green", "pink", "blue", "purple", "orange"]).optional(),
+        backgroundColor: z.string().optional(),
+        textAlign: z.enum(["left", "center", "right"]).optional(),
+        fontSize: z.enum(["small", "normal", "large"]).optional(),
+        isPinned: z.boolean().optional(),
+        isArchived: z.boolean().optional(),
+        tags: z.array(z.string()).optional(),
+        emojis: z.string().optional(),
+        drawingData: z.string().optional(),
+      });
+      
+      const noteId = parseInt(req.params.id);
+      const props = enhancedNoteSchema.parse(req.body);
+      
+      // Verify note ownership
+      const note = await storage.getNoteByUserId(req.user!.id);
+      if (!note || note.id !== noteId) {
+        return res.status(404).json({ message: "Note not found or you don't have permission to edit it" });
+      }
+      
+      // Add updated timestamp
+      const updatedProps = {
+        ...props,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Update the note with all the enhanced properties
+      const updatedNote = await storage.updateNoteProps(noteId, updatedProps);
+      
+      res.json(updatedNote);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error updating note:", error);
+      res.status(500).json({ message: "Failed to update note" });
+    }
+  });
+  
+  // File upload for note attachments
+  app.post("/api/notes/:id/upload", isAuthenticated, upload.single('file'), processImage, async (req: Request, res: Response) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      
+      // Verify note ownership
+      const note = await storage.getNoteByUserId(req.user!.id);
+      if (!note || note.id !== noteId) {
+        // Clean up any uploaded file if note doesn't exist
+        if (req.file && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(404).json({ message: "Note not found or you don't have permission to edit it" });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      // Generate file URL
+      const fileUrl = getFileUrl(req, req.file.filename);
+      
+      // Get existing attachments and add the new one
+      const existingAttachments = note.attachments || [];
+      const newAttachments = [...existingAttachments, fileUrl];
+      
+      // Update note with new attachment
+      const updatedNote = await storage.updateNoteProps(noteId, {
+        attachments: newAttachments,
+        updatedAt: new Date().toISOString()
+      });
+      
+      res.status(201).json({
+        message: "File uploaded successfully",
+        file: {
+          url: fileUrl,
+          filename: req.file.filename,
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        },
+        note: updatedNote
+      });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      res.status(500).json({ message: "Failed to upload file" });
+    }
+  });
+  
+  // Delete attachment from note
+  app.delete("/api/notes/:noteId/attachments/:filename", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const noteId = parseInt(req.params.noteId);
+      const filename = req.params.filename;
+      
+      // Verify note ownership
+      const note = await storage.getNoteByUserId(req.user!.id);
+      if (!note || note.id !== noteId) {
+        return res.status(404).json({ message: "Note not found or you don't have permission to edit it" });
+      }
+      
+      // Find the file URL to remove
+      const attachments = note.attachments || [];
+      const fileUrl = attachments.find(url => url.includes(filename));
+      
+      if (!fileUrl) {
+        return res.status(404).json({ message: "Attachment not found" });
+      }
+      
+      // Remove from attachments array
+      const newAttachments = attachments.filter(url => url !== fileUrl);
+      
+      // Update note without the attachment
+      const updatedNote = await storage.updateNoteProps(noteId, {
+        attachments: newAttachments,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Try to delete the physical file (ignoring errors if it doesn't exist)
+      try {
+        const isImage = fileUrl.includes('/images/');
+        const filePath = path.join(
+          process.cwd(),
+          'uploads',
+          isImage ? 'images' : 'files',
+          filename
+        );
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.warn("Could not delete physical file:", err);
+      }
+      
+      res.json({
+        message: "Attachment deleted successfully",
+        note: updatedNote
+      });
+    } catch (error) {
+      console.error("Error deleting attachment:", error);
+      res.status(500).json({ message: "Failed to delete attachment" });
     }
   });
 
