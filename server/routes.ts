@@ -6,8 +6,10 @@ import {
   insertCommandExecutionSchema,
   insertAiTeamMemberSchema,
   insertAiChatMessageSchema,
-  users
+  users,
+  userPackages as userPackagesSchema
 } from "@shared/schema";
+import * as schema from "@shared/schema";
 import { aiService, initializeAiService } from "./ai-service";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -16,6 +18,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import { paymentService } from "./payment-verification";
 
 const scryptAsync = promisify(scrypt);
 
@@ -121,11 +124,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get user's active package
   app.get("/api/user/package", isAuthenticated, async (req: Request, res: Response) => {
-    const userPackage = await storage.getUserPackage(req.user!.id);
-    if (!userPackage) {
-      return res.status(404).json({ message: "No active package found" });
+    try {
+      const userPackage = await storage.getUserPackage(req.user!.id);
+      if (!userPackage) {
+        return res.status(404).json({ message: "No active package found" });
+      }
+      
+      // Check if package is a subscription and needs renewal
+      if (userPackage.isSubscription && userPackage.renewalDate) {
+        // Check with payment service if subscription is still active
+        const subscriptionStatus = await paymentService.checkSubscriptionStatus(req.user!.id);
+        
+        if (!subscriptionStatus.isActive) {
+          // Subscription has expired, update package to inactive
+          await db.update(schema.userPackages)
+            .set({ isActive: false })
+            .where(eq(schema.userPackages.userId, req.user!.id))
+            .execute();
+            
+          return res.status(402).json({ 
+            message: "Subscription has expired", 
+            renewalDate: subscriptionStatus.renewalDate 
+          });
+        }
+        
+        // Reset trial usage if a new billing cycle has started
+        const renewalDate = new Date(userPackage.renewalDate);
+        const now = new Date();
+        
+        if (now >= renewalDate) {
+          // Reset trial usage for the new billing cycle
+          await storage.resetTrialsUsedInCycle(userPackage.id);
+          
+          // Get the updated package
+          const updatedPackage = await storage.getUserPackage(req.user!.id);
+          return res.json(updatedPackage);
+        }
+      }
+      
+      res.json(userPackage);
+    } catch (error) {
+      console.error("Error fetching user package:", error);
+      res.status(500).json({ message: "Error fetching package information" });
     }
-    res.json(userPackage);
   });
   
   // Update user profile
@@ -175,16 +216,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Purchase a package
+  // Handle subscription renewal with wallet-to-wallet payment
+  app.post("/api/packages/renew", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // Validate request body
+      const renewSchema = z.object({ 
+        walletAddress: z.string(),
+        transactionId: z.string()
+      });
+      
+      const { walletAddress, transactionId } = renewSchema.parse(req.body);
+      
+      // Get the user's current package
+      const userPackage = await storage.getUserPackage(req.user!.id);
+      if (!userPackage) {
+        return res.status(404).json({ message: "No active package found to renew" });
+      }
+      
+      // Check if this is a subscription package
+      if (!userPackage.isSubscription) {
+        return res.status(400).json({ message: "Only subscription packages can be renewed" });
+      }
+      
+      // Get the package details to verify the payment amount
+      const pkg = await storage.getPackage(userPackage.packageId);
+      if (!pkg) {
+        return res.status(404).json({ message: "Package not found" });
+      }
+      
+      // Verify the transaction
+      const verificationResult = await paymentService.verifyTransaction({
+        walletAddress,
+        transactionId,
+        amount: pkg.price
+      });
+      
+      if (!verificationResult.success) {
+        return res.status(400).json({ 
+          message: "Payment verification failed", 
+          details: verificationResult.message 
+        });
+      }
+      
+      // Reset subscription usage and update renewal date
+      const updatedPackage = await storage.resetTrialsUsedInCycle(userPackage.id);
+      
+      // Update transaction ID
+      await storage.updateUserPackageTransaction(userPackage.id, transactionId);
+      
+      // Get the updated package details
+      const updatedUserPackage = await storage.getUserPackage(req.user!.id);
+      
+      res.json({
+        success: true,
+        message: "Subscription renewed successfully",
+        package: updatedUserPackage
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error renewing subscription:", error);
+      res.status(500).json({ message: "An error occurred while renewing the subscription" });
+    }
+  });
+  
+  // Purchase a package with wallet-to-wallet payment
   app.post("/api/packages/purchase", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      // Validate package ID
-      const packageIdSchema = z.object({ packageId: z.number() });
-      const { packageId } = packageIdSchema.parse(req.body);
+      // Validate request body
+      const purchaseSchema = z.object({ 
+        packageId: z.number(),
+        walletAddress: z.string(),
+        transactionId: z.string()
+      });
+      
+      const { packageId, walletAddress, transactionId } = purchaseSchema.parse(req.body);
       
       const pkg = await storage.getPackage(packageId);
       if (!pkg) {
         return res.status(404).json({ message: "Package not found" });
+      }
+      
+      // Verify the transaction
+      const verificationResult = await paymentService.verifyTransaction({
+        walletAddress,
+        transactionId,
+        amount: pkg.price
+      });
+      
+      if (!verificationResult.success) {
+        return res.status(400).json({ 
+          message: "Payment verification failed", 
+          details: verificationResult.message 
+        });
       }
       
       // Check if user already has an active package
@@ -199,24 +324,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         packageId,
         purchasedAt: new Date().toISOString(),
         trialsRemaining: pkg.trialCount,
-        isActive: true
+        isActive: true,
+        transactionId
       });
       
-      // Get the package details for the response
-      const packageDetails = await storage.getPackage(packageId);
+      // Get the updated user package with all fields
+      const userPackageResponse = await storage.getUserPackage(req.user!.id);
       
-      res.status(201).json({
-        id: userPackage.id,
-        packageId: userPackage.packageId,
-        packageName: packageDetails?.name || "Unknown",
-        purchasedAt: userPackage.purchasedAt,
-        trialsRemaining: userPackage.trialsRemaining,
-        isActive: userPackage.isActive
-      });
+      res.status(201).json(userPackageResponse);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: fromZodError(error).message });
       }
+      console.error("Error processing purchase:", error);
       res.status(500).json({ message: "An error occurred while purchasing the package" });
     }
   });
@@ -380,12 +500,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Check trial limits for different package types
+      if (userPackage.isSubscription) {
+        // For subscription packages, check trials used in the current cycle
+        if (userPackage.trialsUsedInCycle !== undefined && 
+            userPackage.trialLimitPerCycle !== undefined && 
+            userPackage.trialsUsedInCycle >= userPackage.trialLimitPerCycle) {
+          return res.status(403).json({
+            message: `You've reached your limit of ${userPackage.trialLimitPerCycle} trials for this billing cycle.`
+          });
+        }
+      } else {
+        // For non-subscription packages, check remaining trials
+        if (userPackage.trialsRemaining !== -1 && userPackage.trialsRemaining <= 0) {
+          return res.status(403).json({
+            message: "You've used all your available trials. Please purchase a new package."
+          });
+        }
+      }
+      
       // Import the trial generation system
       const executeTrialCommand = (await import('./agents')).default;
       
       // Execute the command using our AI agent system
       if (command.match(/^(!)?generateTrial\s+/)) {
         const result = await executeTrialCommand(req.user!.id, command);
+        
+        // Update trial usage based on package type and command status
+        // Check if command was successful by looking at status field
+        if (result.status === 'success') {
+          if (userPackage.isSubscription) {
+            // For subscription packages, increment trials used in this cycle
+            await storage.incrementTrialsUsedInCycle(userPackage.id);
+          } else if (userPackage.trialsRemaining !== -1) {
+            // For non-subscription packages with limited trials, decrement remaining trials
+            await storage.updateUserPackageTrials(userPackage.id, userPackage.trialsRemaining - 1);
+          }
+        }
+        
         return res.json(result);
       } else {
         // Handle other command types if needed

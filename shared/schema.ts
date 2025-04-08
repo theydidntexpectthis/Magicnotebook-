@@ -66,6 +66,12 @@ export const userPackages = pgTable("user_packages", {
   purchasedAt: text("purchased_at").notNull(), // ISO date string
   trialsRemaining: integer("trials_remaining").notNull(),
   isActive: boolean("is_active").default(true),
+  // New fields for subscription tracking
+  isSubscription: boolean("is_subscription").default(false),
+  renewalDate: text("renewal_date"), // ISO date string for next renewal
+  trialLimitPerCycle: integer("trial_limit_per_cycle"), // Maximum trials allowed per cycle
+  trialsUsedInCycle: integer("trials_used_in_cycle").default(0), // Trials used in current cycle
+  transactionId: text("transaction_id"), // Blockchain transaction ID
 });
 
 export const insertUserPackageSchema = createInsertSchema(userPackages).omit({
@@ -149,6 +155,10 @@ export const userPackageResponseSchema = z.object({
   purchasedAt: z.string(),
   trialsRemaining: z.number(),
   isActive: z.boolean(),
+  isSubscription: z.boolean().optional(),
+  renewalDate: z.string().optional(),
+  trialLimitPerCycle: z.number().optional(),
+  trialsUsedInCycle: z.number().optional(),
 });
 
 export const commandResponseSchema = z.object({

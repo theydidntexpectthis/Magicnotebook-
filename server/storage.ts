@@ -39,6 +39,9 @@ export interface IStorage {
   getUserPackage(userId: number): Promise<UserPackageResponse | undefined>;
   createUserPackage(userPackage: InsertUserPackage): Promise<UserPackage>;
   updateUserPackageTrials(id: number, trialsRemaining: number): Promise<UserPackage>;
+  incrementTrialsUsedInCycle(id: number): Promise<UserPackage>;
+  resetTrialsUsedInCycle(id: number): Promise<UserPackage>;
+  updateUserPackageTransaction(id: number, transactionId: string): Promise<UserPackage>;
   
   // Note operations
   getNoteByUserId(userId: number): Promise<Note | undefined>;
@@ -131,12 +134,48 @@ export class DatabaseStorage implements IStorage {
       packageName: pkg.name,
       purchasedAt: userPackage.purchasedAt,
       trialsRemaining: userPackage.trialsRemaining,
-      isActive: userPackage.isActive ?? true
+      isActive: userPackage.isActive ?? true,
+      isSubscription: userPackage.isSubscription,
+      renewalDate: userPackage.renewalDate,
+      trialLimitPerCycle: userPackage.trialLimitPerCycle,
+      trialsUsedInCycle: userPackage.trialsUsedInCycle
     };
   }
   
   async createUserPackage(insertUserPackage: InsertUserPackage): Promise<UserPackage> {
-    const [userPackage] = await db.insert(schema.userPackages).values(insertUserPackage).returning();
+    // Determine if this is a subscription package based on the name
+    const pkg = await this.getPackage(insertUserPackage.packageId);
+    if (pkg) {
+      const isSubscription = pkg.name.includes('Monthly');
+      
+      // If this is a subscription package, set up the renewal date and limits
+      if (isSubscription) {
+        const purchaseDate = new Date(insertUserPackage.purchasedAt);
+        const renewalDate = new Date(purchaseDate);
+        renewalDate.setMonth(renewalDate.getMonth() + 1);
+        
+        // Set different limits based on package tier
+        const trialLimitPerCycle = pkg.name.includes('Premium') ? 30 : 15;
+        
+        // Add subscription-specific fields
+        const subscriptionPackage = {
+          ...insertUserPackage,
+          isSubscription: true,
+          renewalDate: renewalDate.toISOString(),
+          trialLimitPerCycle,
+          trialsUsedInCycle: 0
+        };
+        
+        const [userPackage] = await db.insert(schema.userPackages).values(subscriptionPackage).returning();
+        return userPackage;
+      }
+    }
+    
+    // For non-subscription packages
+    const [userPackage] = await db.insert(schema.userPackages).values({
+      ...insertUserPackage,
+      isSubscription: false
+    }).returning();
     return userPackage;
   }
   
@@ -144,6 +183,70 @@ export class DatabaseStorage implements IStorage {
     const [updatedUserPackage] = await db
       .update(schema.userPackages)
       .set({ trialsRemaining })
+      .where(eq(schema.userPackages.id, id))
+      .returning();
+    
+    if (!updatedUserPackage) {
+      throw new Error('User package not found');
+    }
+    
+    return updatedUserPackage;
+  }
+  
+  async incrementTrialsUsedInCycle(id: number): Promise<UserPackage> {
+    // Get the current user package
+    const [userPackage] = await db
+      .select()
+      .from(schema.userPackages)
+      .where(eq(schema.userPackages.id, id));
+    
+    if (!userPackage) {
+      throw new Error('User package not found');
+    }
+    
+    // Only increment for subscription packages
+    if (userPackage.isSubscription) {
+      const trialsUsedInCycle = (userPackage.trialsUsedInCycle || 0) + 1;
+      
+      const [updatedUserPackage] = await db
+        .update(schema.userPackages)
+        .set({ trialsUsedInCycle })
+        .where(eq(schema.userPackages.id, id))
+        .returning();
+        
+      return updatedUserPackage;
+    }
+    
+    return userPackage;
+  }
+  
+  async resetTrialsUsedInCycle(id: number): Promise<UserPackage> {
+    const [updatedUserPackage] = await db
+      .update(schema.userPackages)
+      .set({ 
+        trialsUsedInCycle: 0,
+        // Update renewal date to next month
+        renewalDate: (() => {
+          const now = new Date();
+          const nextMonth = new Date(now);
+          nextMonth.setMonth(now.getMonth() + 1);
+          return nextMonth.toISOString();
+        })()
+      })
+      .where(eq(schema.userPackages.id, id))
+      .returning();
+    
+    if (!updatedUserPackage) {
+      throw new Error('User package not found');
+    }
+    
+    return updatedUserPackage;
+  }
+  
+  async updateUserPackageTransaction(id: number, transactionId: string): Promise<UserPackage> {
+    const [updatedUserPackage] = await db
+      .update(schema.userPackages)
+      .set({ transactionId })
       .where(eq(schema.userPackages.id, id))
       .returning();
     
