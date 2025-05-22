@@ -11,3 +11,26 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+@font-face {
+  font-family: 'Handwritten';
+  src: url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap');
+}
+
+.font-handwritten {
+  font-family: 'Caveat', cursive;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(var(--rotation, -3deg));
+  }
+  50% {
+    transform: translateY(-10px) rotate(var(--rotation, -3deg));
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+  --rotation: -3deg;
+}

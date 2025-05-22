@@ -2,149 +2,155 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/context/user-context";
 import { useLocation } from "wouter";
-import { Pen, Wand2, Package, MessageSquare, DollarSign, Gift, BookOpen } from "lucide-react";
-import { SiDiscord } from "react-icons/si";
+import { Lightbulb, Wand2, Share2, Users, ArrowRight } from "lucide-react";
 import { StickyNote } from "@/components/ui/sticky-note";
 
 const LandingPage: React.FC = () => {
-  const { packages, setSelectedPackageId } = useUser();
+  const { packages } = useUser();
   const [, setLocation] = useLocation();
 
   const handleGetStarted = () => {
-    setLocation("/app");
-  };
-
-  const handleSelectPackage = (packageId: number) => {
-    setSelectedPackageId(packageId);
-    setLocation("/app");
+    setLocation("/auth");
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
-      {/* Simple ChatGPT-style Hero */}
-      <section className="py-16 px-4 flex-1 flex flex-col items-center justify-start">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6">
-            Magic Notebook
-          </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Take notes, use magic commands, and save money with trial services
-          </p>
-          <Button 
-            size="lg" 
-            className="bg-amber-400 hover:bg-amber-500 text-gray-800 font-medium px-8 py-6 rounded-md"
-            onClick={handleGetStarted}
-          >
-            Get Started
-          </Button>
-        </div>
-
-        {/* Sticky Notes Features */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-12">
-          <StickyNote color="green" className="p-5 transform rotate-1 cursor-pointer hover:rotate-0">
-            <div className="flex flex-col items-center text-center">
-              <Pen className="w-8 h-8 text-gray-700 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Smart Note-Taking</h3>
-              <p className="text-gray-700">
-                Capture ideas in a beautiful, distraction-free workspace
-              </p>
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-white to-yellow-50">
+      {/* Hero Section */}
+      <main className="flex-1">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center">
+          <div className="relative">
+            {/* Floating sticky notes */}
+            <div className="absolute -top-12 left-1/4 transform -rotate-12">
+              <StickyNote color="yellow" className="p-3 animate-float">
+                <p className="text-sm font-handwritten">Sign up for free!</p>
+              </StickyNote>
             </div>
-          </StickyNote>
-          
-          <StickyNote color="yellow" className="p-5 transform -rotate-1 cursor-pointer hover:rotate-0">
-            <div className="flex flex-col items-center text-center">
-              <Wand2 className="w-8 h-8 text-gray-700 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Magic Commands</h3>
-              <p className="text-gray-700">
-                Type commands to instantly generate premium trials
-              </p>
+            <div className="absolute top-0 right-1/4 transform rotate-6">
+              <StickyNote color="blue" className="p-3 animate-float" style={{ animationDelay: "1s" }}>
+                <p className="text-sm font-handwritten">Schedule meeting</p>
+              </StickyNote>
             </div>
-          </StickyNote>
-          
-          <StickyNote color="pink" className="p-5 transform rotate-1 cursor-pointer hover:rotate-0">
-            <div className="flex flex-col items-center text-center">
-              <DollarSign className="w-8 h-8 text-gray-700 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Save Money</h3>
-              <p className="text-gray-700">
-                Get the package that fits your digital lifestyle
-              </p>
+            <div className="absolute -top-8 right-1/3 transform -rotate-3">
+              <StickyNote color="green" className="p-3 animate-float" style={{ animationDelay: "2s" }}>
+                <p className="text-sm font-handwritten">Blog post ideas</p>
+              </StickyNote>
             </div>
-          </StickyNote>
-        </div>
 
-        {/* Command Example */}
-        <div className="w-full max-w-3xl mx-auto mb-12">
-          <StickyNote color="blue" className="p-5 transform -rotate-1">
-            <div className="flex items-center">
-              <MessageSquare className="w-6 h-6 text-gray-700 mr-3" />
-              <p className="text-gray-800 font-medium">Type "/spotify" to generate a Spotify trial...</p>
-            </div>
-          </StickyNote>
-        </div>
-
-        {/* Sticky Note Packages */}
-        <div className="w-full max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
-          {packages.map((pkg, index) => (
-            <StickyNote 
-              key={pkg.id} 
-              color={
-                index === 0 ? "green" : 
-                index === 1 ? "yellow" : 
-                index === 2 ? "blue" : 
-                "purple"
-              }
-              className="p-5 transform hover:scale-105 transition-transform duration-200 cursor-pointer"
-              onClick={() => handleSelectPackage(pkg.id)}
-            >
-              <div className="flex flex-col items-center text-center">
-                {pkg.isBestValue && (
-                  <div className="bg-gray-800 text-white text-xs py-1 px-2 rounded-md mb-2">
-                    BEST VALUE
-                  </div>
-                )}
-                <h3 className="text-lg font-semibold mb-2">{pkg.name} Package</h3>
-                <div className="text-3xl font-bold mb-2">${(pkg.price / 100).toFixed(2)}</div>
-                <p className="text-gray-700 text-sm mb-3">
-                  {pkg.trialCount === -1 ? 'Unlimited trials' : `${pkg.trialCount} trials`}
-                </p>
-                <Button 
-                  className="bg-gray-800 hover:bg-gray-700 w-full"
-                >
-                  Select
-                </Button>
-              </div>
-            </StickyNote>
-          ))}
-        </div>
-      </section>
-
-      {/* Enhanced Footer with Community and Documentation Links */}
-      <footer className="py-6 px-4 bg-gray-100 border-t border-gray-200">
-        <div className="container mx-auto max-w-6xl">
-          <div className="flex flex-col items-center justify-center gap-4 mb-4">
-            <div className="flex gap-4 items-center">
-              <a 
-                href="#" 
-                className="flex items-center p-2 rounded-md text-indigo-600 hover:bg-indigo-50 transition-colors duration-200"
-                title="Join our Discord community"
+            {/* Main heading */}
+            <h1 className="text-5xl md:text-7xl font-bold text-navy-900 mb-6">
+              Write it. Wish it.
+              <br />
+              Watch it work.
+            </h1>
+            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+              The magical notebook that transforms your notes into actions.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+              <Button 
+                size="lg"
+                className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-lg px-8"
+                onClick={handleGetStarted}
               >
-                <SiDiscord className="w-5 h-5 mr-2" />
-                <span className="font-medium">Join Community</span>
-              </a>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <a 
-                href="#" 
-                className="flex items-center p-2 rounded-md text-amber-600 hover:bg-amber-50 transition-colors duration-200"
-                title="Read our documentation"
+                Start Free Trial
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="lg"
+                className="text-lg"
+                onClick={() => setLocation("/demo")}
               >
-                <BookOpen className="w-5 h-5 mr-2" />
-                <span className="font-medium">Documentation</span>
-              </a>
+                Watch in action
+              </Button>
             </div>
           </div>
+
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-4xl mx-auto mt-20">
+            <div className="text-left">
+              <div className="bg-yellow-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                <Lightbulb className="h-6 w-6 text-yellow-700" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Smart Suggestions</h3>
+              <p className="text-gray-600">
+                Get automatic to-dos generated from your notes.
+              </p>
+            </div>
+
+            <div className="text-left">
+              <div className="bg-purple-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                <Wand2 className="h-6 w-6 text-purple-700" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Built-in Agents</h3>
+              <p className="text-gray-600">
+                Automate your tasks with AI-powered commands.
+              </p>
+            </div>
+
+            <div className="text-left">
+              <div className="bg-blue-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                <Share2 className="h-6 w-6 text-blue-700" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Magic Marketplace</h3>
+              <p className="text-gray-600">
+                Discover and share custom automations with others.
+              </p>
+            </div>
+
+            <div className="text-left">
+              <div className="bg-green-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                <Users className="h-6 w-6 text-green-700" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Join the Community</h3>
+              <p className="text-gray-600">
+                Connect through collaborative notes and referrals.
+              </p>
+            </div>
+          </div>
+
+          {/* Pricing Section */}
+          <div className="mt-32">
+            <h2 className="text-3xl font-bold mb-12">Choose your plan</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              {/* Free Plan */}
+              <StickyNote color="yellow" className="p-8 transform hover:scale-105 transition-transform">
+                <h3 className="text-2xl font-bold mb-2">Free</h3>
+                <p className="text-gray-600 mb-4">Limited commands</p>
+                <Button 
+                  className="w-full bg-gray-900 hover:bg-gray-800"
+                  onClick={handleGetStarted}
+                >
+                  Get Started
+                </Button>
+              </StickyNote>
+
+              {/* Pro Plan */}
+              <StickyNote color="blue" className="p-8 transform hover:scale-105 transition-transform">
+                <div className="absolute -top-2 -right-2 bg-yellow-400 text-xs font-bold px-2 py-1 rounded-full">
+                  POPULAR
+                </div>
+                <h3 className="text-2xl font-bold mb-2">Pro</h3>
+                <div className="text-3xl font-bold mb-1">$7.99 <span className="text-base font-normal text-gray-600">/mo</span></div>
+                <p className="text-gray-600 mb-4">Unlimited trials & agents</p>
+                <Button 
+                  className="w-full bg-gray-900 hover:bg-gray-800"
+                  onClick={handleGetStarted}
+                >
+                  Choose Pro
+                </Button>
+              </StickyNote>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-gray-50 border-t border-gray-200 py-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <p className="text-sm text-gray-600">
-              © {new Date().getFullYear()} Magic Notebook. Save time and money with smart notes & trials.
+            <p className="text-gray-500 text-sm">
+              © {new Date().getFullYear()} Magic Notebook. All rights reserved.
             </p>
           </div>
         </div>
